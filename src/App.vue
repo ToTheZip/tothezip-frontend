@@ -1,19 +1,8 @@
 <template>
   <div id="app">
-    <SignupPage />
+    <router-view />
   </div>
 </template>
-
-<script>
-import SignupPage from "./components/SignupPage.vue";
-
-export default {
-  name: "App",
-  components: {
-    SignupPage,
-  },
-};
-</script>
 
 <style>
 html,
