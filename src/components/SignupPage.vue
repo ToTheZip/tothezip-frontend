@@ -2,6 +2,13 @@
   <div class="signup-page">
     <div class="content-wrapper">
       <div class="form-stack">
+        <button
+          class="logo-hitbox"
+          type="button"
+          aria-label="메인으로 이동"
+          @click="goHome"
+        />
+
         <img
           src="@/assets/images/dozip_logo.png"
           alt="ToTheZip"
@@ -36,6 +43,9 @@ export default {
     },
     goToLogin() {
       this.$router.push("/login");
+    },
+    goHome() {
+      this.$router.push("/");
     },
   },
 };
@@ -81,6 +91,22 @@ export default {
   height: auto;
   z-index: 10;
   pointer-events: none;
+}
+
+.logo-hitbox {
+  position: absolute;
+  top: var(--logo-top);
+  left: 50%;
+  transform: translateX(-50%);
+
+  width: var(--logo-size);
+  height: calc(var(--logo-size) * 0.5);
+
+  z-index: 11;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
 }
 
 .login-link {
