@@ -1,13 +1,14 @@
-// src/router/index.js
 import { createRouter, createWebHistory } from "vue-router";
 
+import HomePage from "@/components/HomePage.vue";
 import SignupPage from "@/components/SignupPage.vue";
 import LoginPage from "@/components/LoginPage.vue";
 
 const routes = [
   {
     path: "/",
-    redirect: "/login",
+    name: "Home",
+    component: HomePage,
   },
   {
     path: "/login",
