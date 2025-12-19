@@ -1,5 +1,5 @@
 <template>
-  <div class="signup-page">
+  <div class="login-page">
     <div class="content-wrapper">
       <div class="form-stack">
         <img
@@ -8,13 +8,13 @@
           class="logo-image"
         />
 
-        <SignupForm @verify-email="handleVerifyEmail" @signup="handleSignup" />
+        <LoginForm @login="handleLogin" />
       </div>
 
-      <div class="login-link">
-        <span class="login-link-text">이미 계정이 있어요! </span>
-        <a href="#" class="login-link-underline" @click.prevent="goToLogin">
-          로그인하러 가기
+      <div class="signup-link">
+        <span class="signup-link-text">가입된 계정이 없어요! </span>
+        <a href="#" class="signup-link-underline" @click.prevent="goToSignup">
+          회원가입하러 가기
         </a>
       </div>
     </div>
@@ -22,27 +22,24 @@
 </template>
 
 <script>
-import SignupForm from "./signup/SignupForm.vue";
+import LoginForm from "./login/LoginForm.vue";
 
 export default {
-  name: "SignupPage",
-  components: { SignupForm },
+  name: "LoginPage",
+  components: { LoginForm },
   methods: {
-    handleVerifyEmail(email) {
-      console.log("Verify email:", email);
+    handleLogin(formData) {
+      console.log("Login:", formData);
     },
-    handleSignup(formData) {
-      console.log("Signup:", formData);
-    },
-    goToLogin() {
-      this.$router.push("/login");
+    goToSignup() {
+      this.$router.push("/signup");
     },
   },
 };
 </script>
 
 <style scoped>
-.signup-page {
+.login-page {
   width: 100vw;
   min-height: 100svh;
   background-color: var(--tothezip-beige-01);
@@ -67,6 +64,7 @@ export default {
   width: min(400px, calc(100vw - 40px));
   position: relative;
 
+  /* SignupPage와 동일 세팅 */
   --logo-size: clamp(200px, 28vw, 260px);
   --logo-top-ratio: 0.41;
   --logo-top: calc(var(--logo-size) * var(--logo-top-ratio) * -1);
@@ -83,13 +81,14 @@ export default {
   pointer-events: none;
 }
 
-.login-link {
+/* 하단 링크 */
+.signup-link {
   margin-top: 16px;
   text-align: center;
 }
 
-.login-link-text,
-.login-link-underline {
+.signup-link-text,
+.signup-link-underline {
   font-family: "Pretendard", sans-serif;
   font-weight: 500;
   font-size: 10px;
@@ -97,14 +96,14 @@ export default {
   color: var(--tothezip-beige-04);
 }
 
-.login-link-underline {
+.signup-link-underline {
   text-decoration: underline;
   text-underline-position: from-font;
   text-decoration-skip-ink: none;
   cursor: pointer;
 }
 
-.login-link-underline:hover {
+.signup-link-underline:hover {
   color: var(--tothezip-beige-07);
 }
 </style>
