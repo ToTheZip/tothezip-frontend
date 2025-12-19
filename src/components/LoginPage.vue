@@ -8,6 +8,13 @@
           class="logo-image"
         />
 
+        <button
+          class="logo-hitbox"
+          type="button"
+          aria-label="메인으로 이동"
+          @click="goHome"
+        />
+
         <LoginForm @login="handleLogin" />
       </div>
 
@@ -33,6 +40,9 @@ export default {
     },
     goToSignup() {
       this.$router.push("/signup");
+    },
+    goHome() {
+      this.$router.push("/");
     },
   },
 };
@@ -79,6 +89,22 @@ export default {
   height: auto;
   z-index: 10;
   pointer-events: none;
+}
+
+.logo-hitbox {
+  position: absolute;
+  top: var(--logo-top);
+  left: 50%;
+  transform: translateX(-50%);
+
+  width: var(--logo-size);
+  height: calc(var(--logo-size) * 0.5); /* 로고가 대충 정사각 비율이면 OK */
+
+  z-index: 11;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
 }
 
 /* 하단 링크 */
