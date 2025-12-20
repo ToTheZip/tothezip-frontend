@@ -2,18 +2,7 @@
   <div class="signup-page">
     <div class="content-wrapper">
       <div class="form-stack">
-        <button
-          class="logo-hitbox"
-          type="button"
-          aria-label="메인으로 이동"
-          @click="goHome"
-        />
-
-        <img
-          src="@/assets/images/dozip_logo.png"
-          alt="ToTheZip"
-          class="logo-image"
-        />
+        <ClickableLogo :src="logo" />
 
         <SignupForm @verify-email="handleVerifyEmail" @signup="handleSignup" />
       </div>
@@ -29,11 +18,13 @@
 </template>
 
 <script>
+import ClickableLogo from "./common/ClickableLogo.vue";
 import SignupForm from "./signup/SignupForm.vue";
+import logo from "@/assets/images/dozip_logo.png";
 
 export default {
   name: "SignupPage",
-  components: { SignupForm },
+  components: { SignupForm, ClickableLogo },
   methods: {
     handleVerifyEmail(email) {
       console.log("Verify email:", email);
@@ -44,9 +35,9 @@ export default {
     goToLogin() {
       this.$router.push("/login");
     },
-    goHome() {
-      this.$router.push("/");
-    },
+  },
+  data() {
+    return { logo };
   },
 };
 </script>
