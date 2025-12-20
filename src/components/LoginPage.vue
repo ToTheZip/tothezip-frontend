@@ -31,12 +31,34 @@
 <script>
 import LoginForm from "./login/LoginForm.vue";
 
+import { loginApi } from "@/api/auth";
+import { useAuthStore } from "@/stores/auth";
+
+const API_BASE = import.meta.env.VITE_API_BASE;
+
 export default {
   name: "LoginPage",
   components: { LoginForm },
   methods: {
-    handleLogin(formData) {
-      console.log("Login:", formData);
+    async handleLogin({ email, password }) {
+      const auth = useAuthStore();
+
+      try {
+        const { accessToken, user } = await loginApi(email, password);
+
+        auth.setAccessToken(accessToken);
+        auth.setUser(user);
+
+        this.$router.push("/");
+      } catch (e) {
+        console.error("[LOGIN] failed:", e);
+
+        if (String(e?.message) === "INVALID_CREDENTIALS") {
+          alert("가입되지 않은 이메일이거나 잘못된 비밀번호입니다.");
+        } else {
+          alert("로그인 중 오류가 발생했습니다.");
+        }
+      }
     },
     goToSignup() {
       this.$router.push("/signup");
