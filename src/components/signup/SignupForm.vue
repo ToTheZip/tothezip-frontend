@@ -361,8 +361,20 @@ export default {
   cursor: pointer;
 }
 
-.signup-button:hover {
+/* hover는 활성 상태에서만 */
+.signup-button:not(:disabled):hover {
   background: var(--tothezip-beige-08);
+}
+
+/* disabled 상태 */
+.signup-button:disabled {
+  /* background: var(--tothezip-beige-03);
+  border-color: var(--tothezip-beige-03);
+  color: var(--tothezip-beige-05);
+  cursor: default;
+  opacity: 0.5; */
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 @media (max-width: 500px) {
