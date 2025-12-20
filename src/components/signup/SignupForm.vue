@@ -27,6 +27,7 @@
         type="email"
         custom-class="email-group"
         input-class="email-input"
+        :disabled="emailStep === 'verified'"
         :has-button="true"
         :button-text="emailStep === 'verified' ? '완료' : '인증'"
         :button-disabled="
@@ -94,8 +95,7 @@
 import ProfileImageUpload from "./ProfileImageUpload.vue";
 import FormInput from "./FormInput.vue";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE || "http://localhost:80/tothezip";
+const API_BASE = import.meta.env.VITE_API_BASE;
 
 export default {
   name: "SignupForm",
@@ -242,8 +242,12 @@ export default {
         const ok = await r.json(); // true/false
         if (ok) {
           this.emailStep = "verified";
-          this.codeHelperText = "인증이 완료되었습니다.";
-          this.codeHelperType = "success";
+          this.emailHelperText = "이메일 인증 완료!";
+          this.emailHelperType = "success";
+
+          // 인증코드 입력칸 정리
+          this.codeHelperText = "";
+          this.codeHelperType = "";
         } else {
           this.codeHelperText = "인증코드가 올바르지 않습니다.";
           this.codeHelperType = "error";

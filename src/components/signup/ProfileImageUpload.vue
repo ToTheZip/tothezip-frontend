@@ -1,8 +1,27 @@
 <template>
   <div class="profile-image-group">
     <div class="profile-image-wrapper">
-      <div class="profile-image-input"></div>
-      <div class="profile-image-camera" @click="handleImageUpload">
+      <!-- 미리보기 -->
+      <img
+        v-if="previewUrl"
+        class="profile-image-preview"
+        :src="previewUrl"
+        alt="프로필 미리보기"
+        draggable="false"
+      />
+      <div v-else class="profile-image-input"></div>
+
+      <!-- 숨겨진 file input -->
+      <input
+        ref="fileInput"
+        class="file-input"
+        type="file"
+        accept="image/*"
+        @change="onChange"
+      />
+
+      <div class="profile-image-camera" @click="openPicker" role="button">
+        <!-- 아이콘 동일 -->
         <svg
           width="24"
           height="24"
@@ -33,9 +52,28 @@
 <script>
 export default {
   name: "ProfileImageUpload",
+  props: {
+    previewUrl: { type: String, default: "" },
+  },
+  emits: ["file-selected"],
   methods: {
-    handleImageUpload() {
-      console.log("Upload profile image");
+    openPicker() {
+      this.$refs.fileInput?.click();
+    },
+    onChange(e) {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      // 간단 검증 - 백에서도 검증하긴 함
+      const maxMb = 5;
+      if (file.size > maxMb * 1024 * 1024) {
+        alert(`이미지는 최대 ${maxMb}MB까지 업로드 가능합니다.`);
+        e.target.value = "";
+        return;
+      }
+
+      const url = URL.createObjectURL(file);
+      this.$emit("file-selected", { file, previewUrl: url });
     },
   },
 };
@@ -61,6 +99,19 @@ export default {
   background: var(--tothezip-cream-02);
   border: 1px solid var(--tothezip-beige-02);
   border-radius: 50px;
+}
+
+.profile-image-preview {
+  width: 80px;
+  height: 80px;
+  border-radius: 50px;
+  object-fit: cover;
+  border: 1px solid var(--tothezip-beige-02);
+  display: block;
+}
+
+.file-input {
+  display: none;
 }
 
 .profile-image-camera {
