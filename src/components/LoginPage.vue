@@ -2,18 +2,7 @@
   <div class="login-page">
     <div class="content-wrapper">
       <div class="form-stack">
-        <img
-          src="@/assets/images/dozip_logo.png"
-          alt="ToTheZip"
-          class="logo-image"
-        />
-
-        <button
-          class="logo-hitbox"
-          type="button"
-          aria-label="메인으로 이동"
-          @click="goHome"
-        />
+        <ClickableLogo :src="logo" />
 
         <LoginForm @login="handleLogin" />
       </div>
@@ -29,7 +18,9 @@
 </template>
 
 <script>
+import ClickableLogo from "./common/ClickableLogo.vue";
 import LoginForm from "./login/LoginForm.vue";
+import logo from "@/assets/images/dozip_logo.png";
 
 import { loginApi } from "@/api/auth";
 import { useAuthStore } from "@/stores/auth";
@@ -38,7 +29,7 @@ const API_BASE = import.meta.env.VITE_API_BASE;
 
 export default {
   name: "LoginPage",
-  components: { LoginForm },
+  components: { LoginForm, ClickableLogo },
   methods: {
     async handleLogin({ email, password }) {
       const auth = useAuthStore();
@@ -66,6 +57,9 @@ export default {
     goHome() {
       this.$router.push("/");
     },
+  },
+  data() {
+    return { logo };
   },
 };
 </script>

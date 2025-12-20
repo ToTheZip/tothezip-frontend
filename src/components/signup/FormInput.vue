@@ -2,35 +2,60 @@
   <div class="input-group" :class="customClass">
     <label class="input-label">{{ label }}</label>
 
-    <div v-if="hasButton" class="input-with-button">
-      <input
-        :type="type"
-        :value="modelValue"
-        @input="$emit('update:modelValue', $event.target.value)"
-        class="input-field"
-        :class="inputClass"
-        :placeholder="placeholder"
-      />
-      <button class="verify-button" @click="$emit('button-click')">
+    <div class="field-row" :class="{ 'has-button': hasButton }">
+      <div class="input-wrap" :class="{ 'has-right-icon': !!rightIcon }">
+        <input
+          :type="type"
+          :value="modelValue"
+          @input="$emit('update:modelValue', $event.target.value)"
+          class="input-field"
+          :class="inputClass"
+          :placeholder="placeholder"
+          :disabled="disabled"
+        />
+
+        <span
+          v-if="rightIcon"
+          class="right-icon"
+          :class="rightIconType"
+          role="button"
+          tabindex="0"
+          @click="$emit('right-icon-click')"
+          @keydown.enter.prevent="$emit('right-icon-click')"
+          @keydown.space.prevent="$emit('right-icon-click')"
+        >
+          <IconEye v-if="rightIcon === 'eye'" />
+          <IconEyeOff v-else-if="rightIcon === 'eye-off'" />
+          <span v-else class="icon-text">{{
+            rightIcon === "x" ? "✕" : rightIcon
+          }}</span>
+        </span>
+      </div>
+
+      <button
+        v-if="hasButton"
+        class="verify-button"
+        type="button"
+        :disabled="buttonDisabled"
+        @click="$emit('button-click')"
+      >
         {{ buttonText }}
       </button>
     </div>
 
-    <input
-      v-else
-      :type="type"
-      :value="modelValue"
-      @input="$emit('update:modelValue', $event.target.value)"
-      class="input-field"
-      :class="inputClass"
-      :placeholder="placeholder"
-    />
+    <p v-if="helperText" class="helper-text" :class="helperType">
+      {{ helperText }}
+    </p>
   </div>
 </template>
 
 <script>
+import IconEye from "@/components/icons/IconEye.vue";
+import IconEyeOff from "@/components/icons/IconEyeOff.vue";
+
 export default {
   name: "FormInput",
+  components: { IconEye, IconEyeOff },
   props: {
     label: { type: String, required: true },
     modelValue: { type: String, default: "" },
@@ -38,10 +63,19 @@ export default {
     placeholder: { type: String, default: "" },
     customClass: { type: String, default: "" },
     inputClass: { type: String, default: "" },
+
     hasButton: { type: Boolean, default: false },
     buttonText: { type: String, default: "" },
+    buttonDisabled: { type: Boolean, default: false },
+
+    helperText: { type: String, default: "" },
+    helperType: { type: String, default: "" }, // "error" | "success" | "info"
+    rightIcon: { type: String, default: "" }, // "x" 등
+    rightIconType: { type: String, default: "" }, // "error" | "success"
+    rightIconAria: { type: String, default: "" },
+    disabled: { type: Boolean, default: false },
   },
-  emits: ["update:modelValue", "button-click"],
+  emits: ["update:modelValue", "button-click", "right-icon-click"],
 };
 </script>
 
@@ -60,6 +94,17 @@ export default {
   letter-spacing: -0.048px;
   margin-bottom: 6px;
   padding: 2px 8px;
+}
+
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.input-wrap {
+  position: relative;
+  width: 100%;
 }
 
 .input-field {
@@ -81,31 +126,47 @@ export default {
   border-color: var(--tothezip-beige-04);
 }
 
-.input-field::placeholder {
-  color: var(--tothezip-text-placeholder);
+.input-field:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-.name-input,
-.password-input,
-.password-confirm-input {
-  width: 100%;
-  max-width: none;
+.right-icon {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+
+  cursor: pointer;
+  user-select: none;
+  pointer-events: auto;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  color: var(--tothezip-beige-04);
 }
 
-.input-with-button {
-  position: relative;
-  width: 100%;
+.right-icon.toggle:hover {
+  color: var(--tothezip-beige-07);
 }
 
-.input-with-button .input-field {
-  padding-right: 56px;
+.right-icon.error {
+  color: #d24b4b;
+}
+
+.right-icon.success {
+  color: #2f8f4e;
+}
+
+/* 버튼 있을 때 인풋이 버튼/아이콘과 겹치지 않도록 */
+.field-row.has-button .input-field {
+  padding-right: 15px;
 }
 
 .verify-button {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
+  flex: 0 0 auto;
   background: var(--tothezip-beige-07);
   border: 1px solid var(--tothezip-beige-08);
   border-radius: 15px;
@@ -121,5 +182,36 @@ export default {
 
 .verify-button:hover {
   background: var(--tothezip-beige-08);
+}
+
+.verify-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* helper text */
+.helper-text {
+  margin: 6px 0 0;
+  padding: 0 8px;
+  font-family: "Pretendard", sans-serif;
+  font-size: 11px;
+  line-height: 1.2;
+  color: rgba(163, 151, 143, 0.9);
+}
+
+.helper-text.error {
+  color: #d24b4b;
+}
+
+.helper-text.success {
+  color: #2f8f4e;
+}
+
+.helper-text.info {
+  color: rgba(163, 151, 143, 0.95);
+}
+
+.input-wrap.has-right-icon .input-field {
+  padding-right: 42px; /* 아이콘 공간 확보 */
 }
 </style>

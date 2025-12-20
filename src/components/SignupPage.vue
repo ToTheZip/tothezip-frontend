@@ -2,18 +2,7 @@
   <div class="signup-page">
     <div class="content-wrapper">
       <div class="form-stack">
-        <button
-          class="logo-hitbox"
-          type="button"
-          aria-label="메인으로 이동"
-          @click="goHome"
-        />
-
-        <img
-          src="@/assets/images/dozip_logo.png"
-          alt="ToTheZip"
-          class="logo-image"
-        />
+        <ClickableLogo :src="logo" />
 
         <SignupForm @verify-email="handleVerifyEmail" @signup="handleSignup" />
       </div>
@@ -29,23 +18,122 @@
 </template>
 
 <script>
+import ClickableLogo from "./common/ClickableLogo.vue";
 import SignupForm from "./signup/SignupForm.vue";
+import logo from "@/assets/images/dozip_logo.png";
+
+const API_BASE = import.meta.env.VITE_API_BASE;
 
 export default {
   name: "SignupPage",
-  components: { SignupForm },
+  components: { SignupForm, ClickableLogo },
+  data() {
+    return {
+      logo,
+      loading: false,
+    };
+  },
   methods: {
     handleVerifyEmail(email) {
       console.log("Verify email:", email);
     },
-    handleSignup(formData) {
-      console.log("Signup:", formData);
+
+    async uploadProfileIfNeeded(profileFile) {
+      if (!profileFile) {
+        console.log("[PROFILE] no profile file");
+        return ""; // 프로필 선택 안 했으면 빈 값
+      }
+
+      console.log("[PROFILE] uploading...", profileFile.name);
+
+      const form = new FormData();
+      form.append("file", profileFile);
+
+      const r = await fetch(`${API_BASE}/user/profile/upload`, {
+        method: "POST",
+        body: form,
+        credentials: "include", // 세션 기반 검증이라 필수
+      });
+
+      const text = await r.text();
+      console.log("[PROFILE] status:", r.status);
+      console.log("[PROFILE] response:", text);
+
+      if (r.status === 403) {
+        throw new Error("EMAIL_NOT_VERIFIED");
+      }
+      if (!r.ok) {
+        throw new Error("PROFILE_UPLOAD_FAILED");
+      }
+
+      let data = {};
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error("PROFILE_RESPONSE_NOT_JSON");
+      }
+
+      return data?.url || "";
     },
+
+    async handleSignup({ name, email, password, profileFile }) {
+      if (this.loading) return;
+      this.loading = true;
+
+      try {
+        console.log("[SIGNUP] API_BASE =", API_BASE);
+
+        // 1) (선택) 프로필 업로드 먼저
+        const profileImgUrl = await this.uploadProfileIfNeeded(profileFile);
+
+        // 2) 회원가입(JSON)
+        const body = {
+          email,
+          password,
+          userName: name, // 프론트 name -> 백 userName
+          profileImg: profileImgUrl, // "/uploads/..." or ""
+        };
+
+        const r = await fetch(`${API_BASE}/user/regist`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include", // 세션에 있는 emailVerified 검사 때문에 필수
+          body: JSON.stringify(body),
+        });
+
+        const text = await r.text();
+        console.log("[SIGNUP] status:", r.status);
+        console.log("[SIGNUP] response body:", text);
+
+        if (r.status === 409) {
+          alert("이미 가입된 이메일입니다.");
+          return;
+        }
+        if (r.status === 403) {
+          alert("이메일 인증이 필요합니다. 인증 후 다시 시도해주세요.");
+          return;
+        }
+        if (!r.ok) {
+          alert("회원가입에 실패했습니다.");
+          return;
+        }
+
+        alert("회원가입이 완료되었습니다! 로그인 해주세요.");
+        this.$router.push("/login");
+      } catch (e) {
+        console.error("[SIGNUP] ERROR =", e);
+        if (String(e?.message) === "EMAIL_NOT_VERIFIED") {
+          alert("이메일 인증이 완료된 상태에서만 프로필 업로드가 가능합니다.");
+        } else {
+          alert("회원가입 처리 중 오류가 발생했습니다.");
+        }
+      } finally {
+        this.loading = false;
+      }
+    },
+
     goToLogin() {
       this.$router.push("/login");
-    },
-    goHome() {
-      this.$router.push("/");
     },
   },
 };
