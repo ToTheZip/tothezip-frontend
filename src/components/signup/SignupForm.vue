@@ -6,7 +6,10 @@
 
     <div class="signup-body">
       <div class="top-row">
-        <ProfileImageUpload />
+        <ProfileImageUpload
+          :preview-url="profilePreviewUrl"
+          @file-selected="onFileSelected"
+        />
 
         <FormInput
           label="이름"
@@ -17,6 +20,7 @@
         />
       </div>
 
+      <!-- 이메일 + 인증 버튼 -->
       <FormInput
         label="이메일"
         v-model="formData.email"
@@ -24,14 +28,38 @@
         custom-class="email-group"
         input-class="email-input"
         :has-button="true"
-        button-text="인증"
-        @button-click="verifyEmail"
+        :button-text="emailStep === 'verified' ? '완료' : '인증'"
+        :button-disabled="
+          emailLoading || !formData.email || emailStep === 'verified'
+        "
+        @button-click="handleEmailVerifyFlow"
+        :helper-text="emailHelperText"
+        :helper-type="emailHelperType"
+      />
+
+      <!-- 인증코드 입력 (메일 발송 후 표시) -->
+      <FormInput
+        v-if="emailStep === 'codeSent'"
+        label="인증코드"
+        v-model="formData.emailCode"
+        type="text"
+        custom-class="email-code-group"
+        input-class="email-code-input"
+        :has-button="true"
+        button-text="확인"
+        :button-disabled="emailLoading || !formData.emailCode"
+        @button-click="verifyEmailCode"
+        :helper-text="codeHelperText"
+        :helper-type="codeHelperType"
       />
 
       <FormInput
         label="비밀번호"
         v-model="formData.password"
-        type="password"
+        :type="showPassword ? 'text' : 'password'"
+        :right-icon="showPassword ? 'eye-off' : 'eye'"
+        right-icon-type="toggle"
+        @right-icon-click="showPassword = !showPassword"
         custom-class="password-group"
         input-class="password-input"
       />
@@ -39,13 +67,24 @@
       <FormInput
         label="비밀번호 확인"
         v-model="formData.passwordConfirm"
-        type="password"
+        :type="showPasswordConfirm ? 'text' : 'password'"
+        :right-icon="showPasswordConfirm ? 'eye-off' : 'eye'"
+        right-icon-type="toggle"
+        @right-icon-click="showPasswordConfirm = !showPasswordConfirm"
+        :helper-text="passwordMismatch ? '비밀번호가 일치하지 않습니다.' : ''"
+        helper-type="error"
         custom-class="password-confirm-group"
         input-class="password-confirm-input"
       />
 
       <div class="actions">
-        <button class="signup-button" @click="handleSignup">회원가입</button>
+        <button
+          class="signup-button"
+          @click="handleSignup"
+          :disabled="signupDisabled"
+        >
+          회원가입
+        </button>
       </div>
     </div>
   </div>
@@ -55,6 +94,9 @@
 import ProfileImageUpload from "./ProfileImageUpload.vue";
 import FormInput from "./FormInput.vue";
 
+const API_BASE =
+  import.meta.env.VITE_API_BASE || "http://localhost:80/tothezip";
+
 export default {
   name: "SignupForm",
   components: { ProfileImageUpload, FormInput },
@@ -63,17 +105,167 @@ export default {
       formData: {
         name: "",
         email: "",
+        emailCode: "",
         password: "",
         passwordConfirm: "",
       },
+
+      // 이미지 상태
+      profileFile: null,
+      profilePreviewUrl: "",
+      profileImgUrl: "",
+
+      // 이메일 인증 상태
+      emailStep: "idle", // idle | duplicate | codeSent | verified
+      emailLoading: false,
+      emailHelperText: "",
+      emailHelperType: "",
+
+      codeHelperText: "",
+      codeHelperType: "",
+      showPassword: false,
+      showPasswordConfirm: false,
     };
   },
-  methods: {
-    verifyEmail() {
-      this.$emit("verify-email", this.formData.email);
+  computed: {
+    passwordMismatch() {
+      return (
+        this.formData.password &&
+        this.formData.passwordConfirm &&
+        this.formData.password !== this.formData.passwordConfirm
+      );
     },
+    signupDisabled() {
+      if (
+        !this.formData.name ||
+        !this.formData.email ||
+        !this.formData.password
+      )
+        return true;
+      if (this.passwordMismatch) return true;
+      if (this.emailStep !== "verified") return true;
+      return false;
+    },
+  },
+  watch: {
+    // 이메일 바뀌면 인증 상태 초기화
+    "formData.email"(v, oldV) {
+      if (v !== oldV) {
+        this.emailStep = "idle";
+        this.emailHelperText = "";
+        this.emailHelperType = "";
+        this.codeHelperText = "";
+        this.codeHelperType = "";
+        this.formData.emailCode = "";
+      }
+    },
+  },
+  methods: {
+    onFileSelected({ file, previewUrl }) {
+      this.profileFile = file;
+      this.profilePreviewUrl = previewUrl;
+    },
+
+    // 이메일 인증 흐름: 중복 체크 → 메일 발송
+    async handleEmailVerifyFlow() {
+      const email = (this.formData.email || "").trim();
+      if (!email) return;
+
+      this.emailLoading = true;
+      this.emailHelperText = "";
+      this.emailHelperType = "";
+      this.codeHelperText = "";
+      this.codeHelperType = "";
+
+      try {
+        // 1) 중복 확인
+        const r1 = await fetch(
+          `${API_BASE}/user/check-email?email=${encodeURIComponent(email)}`,
+          { credentials: "include" }
+        );
+        const exists = await r1.json();
+
+        if (exists) {
+          this.emailStep = "duplicate";
+          this.emailHelperText = "이미 가입된 이메일입니다.";
+          this.emailHelperType = "error";
+          return;
+        }
+
+        // 2) 메일 발송
+        const r2 = await fetch(`${API_BASE}/user/email/send-code`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ email }),
+        });
+
+        if (r2.status === 409) {
+          this.emailStep = "duplicate";
+          this.emailHelperText = "이미 가입된 이메일입니다.";
+          this.emailHelperType = "error";
+          return;
+        }
+        if (!r2.ok) throw new Error("send-code failed");
+
+        this.emailStep = "codeSent";
+        this.emailHelperText =
+          "인증코드를 발송했습니다. 메일함을 확인해주세요.";
+        this.emailHelperType = "info";
+      } catch (e) {
+        this.emailHelperText = "이메일 인증 처리 중 오류가 발생했습니다.";
+        this.emailHelperType = "error";
+      } finally {
+        this.emailLoading = false;
+      }
+    },
+
+    // 인증코드 검증
+    async verifyEmailCode() {
+      const email = (this.formData.email || "").trim();
+      const code = (this.formData.emailCode || "").trim();
+      if (!email || !code) return;
+
+      this.emailLoading = true;
+      this.codeHelperText = "";
+      this.codeHelperType = "";
+
+      try {
+        const r = await fetch(`${API_BASE}/user/email/verify`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ email, code }),
+        });
+        if (!r.ok) throw new Error("verify failed");
+
+        const ok = await r.json(); // true/false
+        if (ok) {
+          this.emailStep = "verified";
+          this.codeHelperText = "인증이 완료되었습니다.";
+          this.codeHelperType = "success";
+        } else {
+          this.codeHelperText = "인증코드가 올바르지 않습니다.";
+          this.codeHelperType = "error";
+        }
+      } catch (e) {
+        this.codeHelperText = "인증 확인 중 오류가 발생했습니다.";
+        this.codeHelperType = "error";
+      } finally {
+        this.emailLoading = false;
+      }
+    },
+
     handleSignup() {
-      this.$emit("signup", this.formData);
+      if (this.signupDisabled) return;
+
+      this.$emit("signup", {
+        name: this.formData.name,
+        email: this.formData.email,
+        password: this.formData.password,
+        profileFile: this.profileFile,
+        profileImgUrl: this.profileImgUrl,
+      });
     },
   },
 };
