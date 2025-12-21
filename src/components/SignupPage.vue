@@ -141,10 +141,7 @@ export default {
 
 <style scoped>
 .signup-page {
-  width: 100vw;
-  min-height: 100svh;
-  background-color: var(--tothezip-beige-01);
-
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
