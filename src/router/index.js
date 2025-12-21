@@ -28,6 +28,17 @@ const routes = [
     name: "Notices",
     component: NoticesPage,
   },
+  //  {
+  //   path: "/notice", 
+  //   name: "NoticeList",
+  //   component: NoticeListPage
+  // },
+  // {
+  //   path: "/notice/:noticeId",
+  //   name: "NoticeDetail",
+  //   component: NoticeDetailPage,
+  //   props: true ,
+  // },
 ];
 
 const router = createRouter({

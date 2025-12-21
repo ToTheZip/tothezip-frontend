@@ -32,19 +32,24 @@ export async function loginApi(email, password) {
 }
 
 export async function refreshApi() {
-  const r = await fetch(`${API_BASE}/user/refresh`, {
-    method: "POST",
-    credentials: "include", // refresh_token 쿠키 보내기
-  });
-
-  if (r.status === 401) throw new Error("REFRESH_UNAUTHORIZED");
-  if (!r.ok) throw new Error("REFRESH_FAILED");
-
-  const data = await r.json().catch(() => null);
-  const accessToken = data?.accessToken;
-
-  if (!accessToken) throw new Error("REFRESH_RESPONSE_INVALID");
-  return { accessToken };
+  try{
+    const r = await fetch(`${API_BASE}/user/refresh`, {
+      method: "POST",
+      credentials: "include", // refresh_token 쿠키 보내기
+    });
+  
+    if (r.status === 401) throw new Error("REFRESH_UNAUTHORIZED");
+    if (!r.ok) throw new Error("REFRESH_FAILED");
+  
+    const data = await r.json().catch(() => null);
+    const accessToken = data?.accessToken;
+  
+    if (!accessToken) throw new Error("REFRESH_RESPONSE_INVALID");
+    return { accessToken };
+  } catch (e) {
+    // ✅ 비회원이면 그냥 무시
+    return null
+  }
 }
 
 export async function logoutApi() {
