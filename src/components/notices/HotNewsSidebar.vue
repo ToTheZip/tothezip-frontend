@@ -8,7 +8,14 @@
       </div>
 
       <!-- HOT 뉴스 목록 -->
-      <div v-for="news in hotNews" :key="news.id" class="hot-news-item">
+      <div
+        v-for="news in hotNews"
+        :key="news.id"
+        class="hot-news-item"
+        @click="
+          $router.push({ name: 'NoticeDetail', params: { noticeId: news.id } })
+        "
+      >
         <!-- 타입 영역 -->
         <div class="news-header">
           <span class="news-type">{{ news.type }}</span>

@@ -1,5 +1,11 @@
 <template>
-  <div class="news-card">
+  <div
+    class="news-card"
+    role="button"
+    tabindex="0"
+    @click="goDetail"
+    @keydown.enter="goDetail"
+  >
     <!-- 상단 포인트 라인 (짧고 얇게) -->
     <div class="top-accent" />
 
@@ -27,6 +33,15 @@ export default {
   props: {
     news: { type: Object, required: true },
   },
+  methods: {
+    goDetail() {
+      // id 기반 공지 상세로 이동
+      this.$router.push({
+        name: "NoticeDetail",
+        params: { noticeId: this.news.id },
+      });
+    },
+  },
 };
 </script>
 
@@ -52,7 +67,7 @@ export default {
   border-color: rgba(163, 151, 143, 0.3);
 }
 
-/* ✅ 상단 갈색 라인: 스샷처럼 얇고 짧게 */
+/* 상단 갈색 라인: 스샷처럼 얇고 짧게 */
 .top-accent {
   position: absolute;
   top: 0; /* 카드 상단에 딱 붙임 */
@@ -76,7 +91,7 @@ export default {
   gap: 12px;
 }
 
-/* ✅ 메타는 추천 영역 톤처럼 “가볍게” */
+/* 메타는 추천 영역 톤처럼 “가볍게” */
 .meta-row {
   display: flex;
   align-items: center;
@@ -105,7 +120,7 @@ export default {
   color: rgba(163, 151, 143, 0.9);
 }
 
-/* ✅ 제목: 부담 줄이기(크기/두께 다운 + 줄간격 여유) */
+/* 제목: 부담 줄이기(크기/두께 다운 + 줄간격 여유) */
 .news-title {
   font-family: "Pretendard", sans-serif;
   font-weight: 500; /* 덜 굵게 */
@@ -113,7 +128,7 @@ export default {
   color: #111;
   line-height: 1.48;
 
-  /* ✅ 3줄 기준 높이 확보 */
+  /* 3줄 기준 높이 확보 */
   min-height: calc(1.48em * 3);
 
   /* 3줄 제한 */
@@ -125,7 +140,7 @@ export default {
   -webkit-box-orient: vertical;
 }
 
-/* ✅ 우하단 표시는 작고 연하게 */
+/* 우하단 표시는 작고 연하게 */
 .news-bottom {
   margin-top: auto;
   display: flex;
