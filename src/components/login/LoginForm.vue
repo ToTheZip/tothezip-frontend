@@ -22,16 +22,20 @@
       />
 
       <div class="actions">
-        <button class="login-button" @click="handleLogin">로그인</button>
+        <button
+          class="login-button"
+          @click="handleLogin"
+          :disabled="loginDisabled"
+        >
+          로그인
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import FormInput from "../signup/FormInput.vue";
-// ⬆️ 경로는 너 프로젝트 구조에 맞게 조정
-// 예) "@/components/auth/FormInput.vue" 같은 형태면 그걸로 변경
+import FormInput from "@/components/signup/FormInput.vue";
 
 export default {
   name: "LoginForm",
@@ -43,6 +47,11 @@ export default {
         password: "",
       },
     };
+  },
+  computed: {
+    loginDisabled() {
+      return !(this.formData.email && this.formData.password);
+    },
   },
   methods: {
     handleLogin() {
@@ -122,7 +131,11 @@ export default {
   cursor: pointer;
 }
 
-.login-button:hover {
+.login-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.login-button:not(:disabled):hover {
   background: var(--tothezip-beige-08);
 }
 
