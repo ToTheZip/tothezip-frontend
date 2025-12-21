@@ -2,8 +2,14 @@
   <div class="properties-section">
     <div class="section-header">
       <div class="section-title">
-        관심 등록한 <span class="highlight">{{ regionName }}</span
-        >, 추천 매물을 준비했어요
+        <template v-if="isLoggedIn">
+          관심 등록한 <span class="highlight">{{ regionName }}</span>,
+          추천 매물을 준비했어요
+        </template>
+        <template v-else>
+          <span class="highlight">추천 매물</span>
+          을 준비했어요.
+        </template>
       </div>
       <div class="section-tags">
         <button

@@ -67,6 +67,8 @@ import PropertiesSection from "./home/PropertiesSection.vue";
 import NewsSection from "./home/NewsSection.vue";
 import Footer from "@/components/common/Footer.vue";
 
+import { fetchHomeRecommendations, fetchHomeNotices } from "@/api/home";
+
 export default {
   name: "HomePage",
   components: {
@@ -77,150 +79,160 @@ export default {
   },
   data() {
     return {
-      regionName: "종로구",
-      propertyTags: ["역세권", "학세권", "문세권"],
-      newsCategories: ["전체", "청약", "뉴스"],
-      displayProperties: [
-        {
-          id: 1,
-          name: "현대뜨레비앙",
-          address: "돈화문로11가길 59",
-          rating: "4.2",
-          tags: ["문세권", "학세권", "병세권"],
-          image: "/images/property-placeholder.jpg",
-        },
-        {
-          id: 2,
-          name: "현대뜨레비앙",
-          address: "돈화문로11가길 59",
-          rating: "4.2",
-          tags: ["문세권", "학세권", "병세권"],
-          image: "/images/property-placeholder.jpg",
-        },
-        {
-          id: 3,
-          name: "현대뜨레비앙",
-          address: "돈화문로11가길 59",
-          rating: "4.2",
-          tags: ["문세권", "학세권", "병세권"],
-          image: "/images/property-placeholder.jpg",
-        },
-        {
-          id: 4,
-          name: "현대뜨레비앙",
-          address: "돈화문로11가길 59",
-          rating: "4.2",
-          tags: ["문세권", "학세권", "병세권"],
-          image: "/images/property-placeholder.jpg",
-        },
-        {
-          id: 5,
-          name: "현대뜨레비앙",
-          address: "돈화문로11가길 59",
-          rating: "4.2",
-          tags: ["문세권", "학세권", "병세권"],
-          image: "/images/property-placeholder.jpg",
-        },
-        {
-          id: 6,
-          name: "현대뜨레비앙",
-          address: "돈화문로11가길 59",
-          rating: "4.2",
-          tags: ["문세권", "학세권", "병세권"],
-          image: "/images/property-placeholder.jpg",
-        },
-        {
-          id: 7,
-          name: "현대뜨레비앙",
-          address: "돈화문로11가길 59",
-          rating: "4.2",
-          tags: ["문세권", "학세권", "병세권"],
-          image: "/images/property-placeholder.jpg",
-        },
-        {
-          id: 8,
-          name: "현대뜨레비앙",
-          address: "돈화문로11가길 59",
-          rating: "4.2",
-          tags: ["문세권", "학세권", "병세권"],
-          image: "/images/property-placeholder.jpg",
-        },
-        {
-          id: 9,
-          name: "현대뜨레비앙",
-          address: "돈화문로11가길 59",
-          rating: "4.2",
-          tags: ["문세권", "학세권", "병세권"],
-          image: "/images/property-placeholder.jpg",
-        },
-        {
-          id: 10,
-          name: "현대뜨레비앙",
-          address: "돈화문로11가길 59",
-          rating: "4.2",
-          tags: ["문세권", "학세권", "병세권"],
-          image: "/images/property-placeholder.jpg",
-        },
-      ],
-      displayNews: [
-        {
-          id: 1,
-          type: "주요 뉴스",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-        {
-          id: 2,
-          type: "주요 뉴스",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-        {
-          id: 3,
-          type: "주요 뉴스",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-        {
-          id: 4,
-          type: "주요 뉴스",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-      ],
+      // ✅ 추천 섹션
+      regionName: "",
+      propertyTags: [],
+      displayProperties: [],
+
+      // ✅ 뉴스 섹션
+      newsCategories: ["ALL", "청약", "뉴스"],
+      displayNews: [],
+      activeNewsCategory: "ALL",
+
+      // // 로딩/에러(선택)
+      // isLoadingReco: false,
+      // isLoadingNews: false,
     };
   },
+
+  async mounted() {
+    // 홈 진입 시: 추천 + 뉴스 같이 로드
+    await Promise.all([this.loadRecommendations(), this.loadHomeNews("ALL")]);
+  },
+
   methods: {
+    // handleSearch(searchData) {
+    //   console.log("Search:", searchData);
+    //   // Implement search logic
+    // },
+    // filterProperties(tag) {
+    //   console.log("Filter properties by:", tag);
+    //   // Implement filter logic
+    // },
+    // filterNews(category) {
+    //   console.log("Filter news by:", category);
+    //   // Implement filter logic
+    // },
+    // goToPropertyDetail(id) {
+    //   console.log("Go to property:", id);
+    //   // this.$router.push(`/property/${id}`)
+    // },
+    // goToNewsDetail(id) {
+    //   console.log("Go to news:", id);
+    //   // this.$router.push(`/news/${id}`)
+    // },
+    // goToNewsList() {
+    //   console.log("Go to news list");
+    //   // this.$router.push('/news')
+    // },
+    // scrollToTop() {
+    //   window.scrollTo({ top: 0, behavior: "smooth" });
+    // },
     handleSearch(searchData) {
       console.log("Search:", searchData);
-      // Implement search logic
+      // 검색 로직은 별도 구현
     },
+
+    // -------------------------
+    // ✅ 1) 추천 매물 로드
+    // -------------------------
+    async loadRecommendations() {
+      try {
+        const data = await fetchHomeRecommendations();
+        console.log("HOME RECO DATA:", data);
+
+        this.regionName = data.regionName || "";
+        this.propertyTags = data.facilityTags || [];
+        this.displayProperties = (data.properties || []).map(p => ({
+          id: p.aptSeq,
+          name: p.aptName,
+          address: p.roadAddress,
+          rating: p.propertyRating,
+          tags: [],
+          image: p.imageUrl || "",
+        }));
+      } catch (e) {
+        console.error("추천 매물 로딩 실패", e);
+        this.displayProperties = [];
+      }
+    },
+
     filterProperties(tag) {
+      // 지금은 “연결만”이니까 필터는 나중에.
+      // 필요하면: this.displayProperties = 원본에서 tag 포함하는 것만 필터링
       console.log("Filter properties by:", tag);
-      // Implement filter logic
     },
-    filterNews(category) {
-      console.log("Filter news by:", category);
-      // Implement filter logic
-    },
+
     goToPropertyDetail(id) {
+      // 라우터 있으면 이동
+      // this.$router.push(`/property/${id}`);
       console.log("Go to property:", id);
-      // this.$router.push(`/property/${id}`)
     },
+
+    // -------------------------
+    // ✅ 2) 공지(부동산 소식) 로드
+    // -------------------------
+    async loadHomeNews(category) {
+      this.isLoadingNews = true;
+      try {
+        this.activeNewsCategory = category;
+
+        const typeFilter = category === "전체" ? "ALL" : category; // 백은 ALL/뉴스/청약
+        const nList = await fetchHomeNotices(typeFilter);
+
+        // nList: { pinned:[], notices:[] }
+        const pinned = nList?.pinned || [];
+        const notices = nList?.notices || [];
+
+        // pinned 먼저 + 중복 제거 + 총 4개만
+        const seen = new Set();
+        const merged = [];
+        for (const x of [...pinned, ...notices]) {
+          const id = x.noticeId;
+          if (id == null) continue;
+          if (seen.has(id)) continue;
+          seen.add(id);
+          merged.push(x);
+          if (merged.length >= 4) break; // ✅ 너 요구: 4개만
+        }
+
+        // NewsCard가 기대하는 형태로 변환
+        this.displayNews = merged.map((x) => ({
+          id: x.noticeId,
+          type: x.type, // "뉴스" or "청약" or ...
+          date: this.formatDate(x.registDate), // "2025.12.10"
+          title: x.title,
+        }));
+      } catch (e) {
+        console.error(e);
+        this.displayNews = [];
+      } finally {
+        this.isLoadingNews = false;
+      }
+    },
+
+    filterNews(category) {
+      // 버튼 클릭 → 해당 타입으로 다시 fetch
+      this.loadHomeNews(category);
+    },
+
     goToNewsDetail(id) {
-      console.log("Go to news:", id);
-      // this.$router.push(`/news/${id}`)
+      // 백엔드가 /notice/{id} 제공함.
+      // 라우터를 /notice/:noticeId 로 만들어두면 여기서 이동 가능
+      this.$router.push(`/notice/${id}`);
     },
+
     goToNewsList() {
-      console.log("Go to news list");
-      // this.$router.push('/news')
+      // 공지사항 페이지
+      this.$router.push("/notice");
     },
-    scrollToTop() {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+
+    formatDate(dateLike) {
+      // LocalDate("2025-12-10") -> "2025.12.10"
+      if (!dateLike) return "";
+      const s = String(dateLike);
+      if (s.includes("-")) return s.replaceAll("-", ".");
+      return s;
     },
   },
 };

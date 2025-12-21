@@ -21,7 +21,7 @@
         <!-- ⭐ 별점 (이미지 박스 기준) -->
         <div class="rating-badge">
           <StarIcon class="star-icon" />
-          <span class="rating-value">{{ property.rating }}</span>
+          <span class="rating-value">{{ Number(property.rating).toFixed(1) }}</span>
         </div>
 
         <!-- ✅ Hover 오버레이 + 찜 버튼 -->
