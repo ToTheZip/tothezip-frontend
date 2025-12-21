@@ -1,16 +1,42 @@
 <template>
-  <div id="app">
+  <component :is="layoutComponent">
     <router-view />
-  </div>
+  </component>
 </template>
 
 <script>
+import { computed } from "vue";
+import { useRoute } from "vue-router";
+
+import DefaultLayout from "@/layouts/DefaultLayout.vue";
+import NoFooterLayout from "@/layouts/NoFooterLayout.vue";
+import AuthLayout from "@/layouts/AuthLayout.vue";
+
 import { useAuthStore } from "@/stores/auth";
 import { refreshApi } from "@/api/auth";
 import { getMyInfo } from "@/api/user";
 
 export default {
   name: "App",
+  components: {
+    DefaultLayout,
+    NoFooterLayout,
+    AuthLayout,
+  },
+  setup() {
+    const route = useRoute();
+
+    // 라우트 meta.layout 값으로 레이아웃 결정
+    const layoutComponent = computed(() => {
+      const key = route.meta?.layout;
+      if (key === "auth") return "AuthLayout";
+      if (key === "noFooter") return "NoFooterLayout";
+      return "DefaultLayout";
+    });
+
+    return { layoutComponent };
+  },
+
   async mounted() {
     const auth = useAuthStore();
 

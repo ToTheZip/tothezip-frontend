@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from "vue-router";
 import HomePage from "@/components/HomePage.vue";
 import SignupPage from "@/components/SignupPage.vue";
 import LoginPage from "@/components/LoginPage.vue";
+import NoticesPage from "@/components/NoticesPage.vue";
 
 const routes = [
   {
@@ -14,11 +15,18 @@ const routes = [
     path: "/login",
     name: "Login",
     component: LoginPage,
+    meta: { layout: "auth" },
   },
   {
     path: "/signup",
     name: "Signup",
     component: SignupPage,
+    meta: { layout: "auth" },
+  },
+  {
+    path: "/notices",
+    name: "Notices",
+    component: NoticesPage,
   },
 ];
 
