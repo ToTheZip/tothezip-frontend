@@ -32,10 +32,10 @@ export default {
 
 <style scoped>
 .news-card {
-  position: relative; /* ✅ 이거 없어서 페이지 상단에 붙은 거 */
-  overflow: hidden; /* ✅ 라인/라운드 밖으로 삐져나오는 거 방지 */
+  position: relative; /* 이거 없어서 페이지 상단에 붙은 거 */
+  overflow: hidden; /* 라인/라운드 밖으로 삐져나오는 거 방지 */
 
-  width: calc((100% - 54px) / 4);
+  width: 100%;
   height: 180px;
   background: #ffffff;
   border: 1px solid rgba(163, 151, 143, 0.22);
