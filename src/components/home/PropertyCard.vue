@@ -3,8 +3,15 @@
     <div class="property-image-wrapper">
       <!-- 이미지 기준 박스 -->
       <div class="property-image-box">
-        <!-- 실제 이미지 -->
         <img
+          :src="imgSrc"
+          :alt="property.name"
+          class="property-image"
+          loading="lazy"
+          @error="onImgError"
+        />
+        <!-- 실제 이미지 -->
+        <!-- <img
           v-if="property.image"
           :src="property.image"
           :alt="property.name"
@@ -13,10 +20,10 @@
           @error="onImgError"
         />
 
-        <!-- 이미지 없을 때 placeholder -->
+        이미지 없을 때 placeholder
         <div v-else class="image-placeholder">
           <span class="placeholder-text">이미지 준비중</span>
-        </div>
+        </div> -->
 
         <!-- ⭐ 별점 (이미지 박스 기준) -->
         <div class="rating-badge">
@@ -95,7 +102,23 @@ export default {
       // ✅ 임시 상태(나중에 서버/스토어로 연결하면 됨)
       liked: false,
       isBouncing: false,
+      fallbackImg: new URL("@/assets/images/dozip_logo.png", import.meta.url).href,
+      imgSrc: ""
     };
+  },
+  mounted() {
+    // ✅ 백엔드가 imageUrl로 줄 가능성이 높으니 둘 다 대응
+    this.imgSrc = this.property.imageUrl || this.property.image || this.fallbackImg;
+  },
+
+  watch: {
+    // 카드 재사용되면 property가 바뀔 수 있으니 갱신
+    property: {
+      deep: true,
+      handler(newVal) {
+        this.imgSrc = newVal.imageUrl || newVal.image || this.fallbackImg;
+      },
+    },
   },
   methods: {
     onImgError(e) {

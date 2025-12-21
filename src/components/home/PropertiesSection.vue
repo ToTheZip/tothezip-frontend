@@ -3,7 +3,7 @@
     <div class="section-header">
       <div class="section-title">
         <template v-if="isLoggedIn">
-          관심 등록한 <span class="highlight">{{ regionName }}</span>,
+          관심 등록한 <span class="highlight">{{ regionName || "관심지역" }}</span>,
           추천 매물을 준비했어요
         </template>
         <template v-else>
@@ -35,13 +35,26 @@
 
 <script>
 import PropertyCard from "./PropertyCard.vue";
+import { useAuthStore } from "@/stores/auth";
 
 export default {
   name: "PropertiesSection",
   components: {
     PropertyCard,
   },
+  // computed: {
+  //   auth() {
+  //     return useAuthStore();
+  //   },
+  //   isLoggedIn() {
+  //     return !!this.auth.accessToken;
+  //   },
+  // },
   props: {
+    isLoggedIn: {
+      type: Boolean,
+      default: false,
+    },
     regionName: {
       type: String,
       default: "종로구",

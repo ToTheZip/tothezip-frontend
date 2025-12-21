@@ -37,9 +37,8 @@ export default {
       try {
         const { accessToken, user } = await loginApi(email, password);
 
-        auth.setAccessToken(accessToken);
-        auth.setUser(user);
-
+        auth.setAuth(accessToken, user);
+        localStorage.removeItem("manualLogout");
         this.$router.push("/");
       } catch (e) {
         console.error("[LOGIN] failed:", e);

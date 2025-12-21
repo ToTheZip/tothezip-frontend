@@ -28,76 +28,88 @@
 
       <!-- RIGHT: 메뉴 영역 -->
       <div class="nav-right">
-        <div class="nav-menu">
-          <button class="icon-button" title="관심 매물">
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M20.84 4.61C20.3292 4.099 19.7228 3.69365 19.0554 3.41708C18.3879 3.14052 17.6725 2.99817 16.95 2.99817C16.2275 2.99817 15.5121 3.14052 14.8446 3.41708C14.1772 3.69365 13.5708 4.099 13.06 4.61L12 5.67L10.94 4.61C9.9083 3.57831 8.50903 2.99871 7.05 2.99871C5.59096 2.99871 4.19169 3.57831 3.16 4.61C2.1283 5.64169 1.54871 7.04096 1.54871 8.5C1.54871 9.95903 2.1283 11.3583 3.16 12.39L4.22 13.45L12 21.23L19.78 13.45L20.84 12.39C21.351 11.8792 21.7563 11.2728 22.0329 10.6054C22.3095 9.93789 22.4518 9.22248 22.4518 8.5C22.4518 7.77752 22.3095 7.0621 22.0329 6.39464C21.7563 5.72718 21.351 5.12075 20.84 4.61Z"
-                stroke="#6F3D32"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </button>
-
-          <button class="icon-button" title="마이 캘린더">
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M19 4H5C3.89543 4 3 4.89543 3 6V20C3 21.1046 3.89543 22 5 22H19C20.1046 22 21 21.1046 21 20V6C21 4.89543 20.1046 4 19 4Z"
-                stroke="#6F3D32"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-              <path
-                d="M16 2V6"
-                stroke="#6F3D32"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-              <path
-                d="M8 2V6"
-                stroke="#6F3D32"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-              <path
-                d="M3 10H21"
-                stroke="#6F3D32"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </button>
-
-          <div class="profile-button" v-if="user">
-            <img
-              :src="user.profileImage || '/images/default-profile.jpg'"
-              alt="Profile"
-              class="profile-image"
-            />
-          </div>
-          <div v-else class="auth-links">
+        <!-- 비로그인 -->
+        <template v-if="!isLoggedIn">
+          <div class="nav-menu auth-links">
             <router-link to="/login" class="nav-link">로그인</router-link>
             <router-link to="/signup" class="nav-link">회원가입</router-link>
           </div>
-        </div>
+        </template>
+        <!-- 로그인 -->
+        <template v-else>
+          <div class="nav-menu">
+            <div class="greeting" v-if="auth.user?.userName">
+              <span class="user-name" @click="goMyPage">{{ auth.user.userName }}</span>
+              <span class="hello-text">님, 안녕하세요!</span>
+            </div>
+
+            <button class="icon-button" title="관심 매물">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M20.84 4.61C20.3292 4.099 19.7228 3.69365 19.0554 3.41708C18.3879 3.14052 17.6725 2.99817 16.95 2.99817C16.2275 2.99817 15.5121 3.14052 14.8446 3.41708C14.1772 3.69365 13.5708 4.099 13.06 4.61L12 5.67L10.94 4.61C9.9083 3.57831 8.50903 2.99871 7.05 2.99871C5.59096 2.99871 4.19169 3.57831 3.16 4.61C2.1283 5.64169 1.54871 7.04096 1.54871 8.5C1.54871 9.95903 2.1283 11.3583 3.16 12.39L4.22 13.45L12 21.23L19.78 13.45L20.84 12.39C21.351 11.8792 21.7563 11.2728 22.0329 10.6054C22.3095 9.93789 22.4518 9.22248 22.4518 8.5C22.4518 7.77752 22.3095 7.0621 22.0329 6.39464C21.7563 5.72718 21.351 5.12075 20.84 4.61Z"
+                  stroke="#6F3D32"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+  
+            <button class="icon-button" title="마이 캘린더">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M19 4H5C3.89543 4 3 4.89543 3 6V20C3 21.1046 3.89543 22 5 22H19C20.1046 22 21 21.1046 21 20V6C21 4.89543 20.1046 4 19 4Z"
+                  stroke="#6F3D32"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M16 2V6"
+                  stroke="#6F3D32"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M8 2V6"
+                  stroke="#6F3D32"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M3 10H21"
+                  stroke="#6F3D32"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+  
+            <div class="profile-button" v-if="isLoggedIn" @click="goMyPage">
+              <img
+                :src="profileImg"
+                alt="Profile"
+                class="profile-image"
+              />
+            </div>
+            <router-link to="/" class="nav-link" @click="logout">로그아웃</router-link>
+          </div>
+        </template>
       </div>
     </div>
   </nav>
@@ -106,16 +118,61 @@
 <script>
 import { useAuthStore } from "@/stores/auth";
 import { computed } from "vue";
+import { logoutApi } from "@/api/auth";
 
+// export default {
+//   name: "NavigationBar",
+//   setup() {
+//     const authStore = useAuthStore();
+//     const user = computed(() => authStore.user);
+
+//     return {
+//       user,
+//     };
+//   },
+// };
 export default {
-  name: "NavigationBar",
-  setup() {
-    const authStore = useAuthStore();
-    const user = computed(() => authStore.user);
-
-    return {
-      user,
-    };
+  name: "Header",
+  computed: {
+    auth() {
+      return useAuthStore();
+    },
+    isLoggedIn() {
+      return !!this.auth.accessToken;
+    },
+    profileImg() {
+      // auth.user에 프로필 이미지가 있으면 사용, 없으면 기본 이미지
+      return (
+        this.auth.user?.profileImageUrl ||
+        this.auth.user?.profileImage ||
+        new URL("@/assets/images/login_dozip.png", import.meta.url).href
+      );
+    },
+  },
+  methods: {
+    goFavorites() {
+      // 네 라우트에 맞게 수정
+      this.$router.push("/favorite");
+    },
+    goCalendar() {
+      this.$router.push("/user/calendar");
+    },
+    goMyPage() {
+      this.$router.push("/mypage");
+    },
+    async logout() {
+      const auth = useAuthStore();
+      try {
+        await logoutApi(); // 서버 refresh 쿠키 제거
+      } catch (e) {
+        console.error("[LOGOUT] api failed:", e);
+      } finally{
+        auth.clearAuth();
+        localStorage.setItem("manualLogout", "1");
+        this.$router.push("/");
+        window.location.reload();
+      }
+    },
   },
 };
 </script>
@@ -282,17 +339,47 @@ export default {
 }
 
 .nav-link {
-  font-family: "Pretendard", sans-serif;
+  /* font-family: "Pretendard", sans-serif;
   font-size: 14px;
   font-weight: 500;
   color: #000;
   text-decoration: none;
-  transition: color 0.2s;
+  transition: color 0.2s; */
+  font-family: "Pretendard Variable", sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--tothezip-beige-08);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
 .nav-link:hover {
   color: #ff9c33;
 }
+
+.greeting {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  font-family: "Pretendard Variable", sans-serif;
+  white-space: nowrap;
+}
+
+.user-name {
+  background-color: rgba(255, 156, 51, 0.15); /* 연한 주황 */
+  color: #ff9c33;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 8px;
+  margin-right: 4px;
+}
+
+.hello-text {
+  color: var(--tothezip-beige-08);
+  font-weight: 500;
+}
+
 
 /* 반응형: 좁아지면 검색바 폭 줄이고, 더 좁으면 숨김 */
 @media (max-width: 900px) {

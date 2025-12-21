@@ -37,23 +37,45 @@ export default {
     return { layoutComponent };
   },
 
+  // async mounted() {
+  //   const auth = useAuthStore();
+
+  //   // 새로고침 직후 accessToken은 메모리에 없을 수 있음
+  //   if (!auth.accessToken) {
+  //     try {
+  //       // 1) refresh로 accessToken 재발급 시도
+  //       const { accessToken } = await refreshApi();
+  //       auth.setAccessToken(accessToken);
+
+  //       // 2) 재발급 성공하면 내정보 조회
+  //       const user = await getMyInfo();
+  //       auth.setUser(user);
+  //     } catch (e) {
+  //       // refresh 실패(쿠키 없음/만료)면 그냥 비로그인 상태
+  //       auth.clearAuth();
+  //     }
+  //   }
+  // },
   async mounted() {
     const auth = useAuthStore();
 
-    // 새로고침 직후 accessToken은 메모리에 없을 수 있음
-    if (!auth.accessToken) {
-      try {
-        // 1) refresh로 accessToken 재발급 시도
-        const { accessToken } = await refreshApi();
-        auth.setAccessToken(accessToken);
+    auth.hydrate();
 
-        // 2) 재발급 성공하면 내정보 조회
+    if (localStorage.getItem("manualLogout") === "1") {
+      return;
+    }
+
+    try {
+      if (!auth.accessToken) {
+        const { accessToken } = await refreshApi();
+
+        auth.setAuth(accessToken, auth.user);
+
         const user = await getMyInfo();
-        auth.setUser(user);
-      } catch (e) {
-        // refresh 실패(쿠키 없음/만료)면 그냥 비로그인 상태
-        auth.clearAuth();
+        auth.setAuth(accessToken, user);
       }
+    } catch (e) {
+      auth.clearAuth();
     }
   },
 };
