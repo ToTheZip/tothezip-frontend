@@ -1,6 +1,5 @@
 <template>
   <div class="notices-page">
-    <!-- 콘텐츠 영역 -->
     <div class="content-wrapper">
       <!-- HOT 뉴스 사이드바 -->
       <HotNewsSidebar :hotNews="hotNews" />
@@ -23,21 +22,17 @@
 
         <!-- 뉴스 카드 그리드 -->
         <div class="news-grid">
-          <NewsCard v-for="news in paginatedNews" :key="news.id" :news="news" />
+          <NewsCard v-for="news in allNews" :key="news.id" :news="news" @click="goDetail(news.id)" />
         </div>
 
         <!-- 페이지네이션 -->
         <div class="pagination" v-if="totalPages > 1">
-          <button
-            class="page-btn"
-            :disabled="currentPage === 1"
-            @click="goPage(currentPage - 1)"
-          >
+          <button class="page-btn" :disabled="currentPage === 1" @click="goPage(currentPage - 1)">
             ‹
           </button>
 
           <button
-            v-for="page in totalPages"
+            v-for="page in visiblePages"
             :key="page"
             :class="['page-btn', { active: currentPage === page }]"
             @click="goPage(page)"
@@ -45,11 +40,7 @@
             {{ page }}
           </button>
 
-          <button
-            class="page-btn"
-            :disabled="currentPage === totalPages"
-            @click="goPage(currentPage + 1)"
-          >
+          <button class="page-btn" :disabled="currentPage === totalPages" @click="goPage(currentPage + 1)">
             ›
           </button>
         </div>
@@ -61,238 +52,165 @@
 <script>
 import NewsCard from "@/components/home/NewsCard.vue";
 import HotNewsSidebar from "@/components/notices/HotNewsSidebar.vue";
-import Footer from "@/components/common/Footer.vue";
+
+import { fetchNoticeList, fetchNoticeMain } from "@/api/notice";
 
 export default {
   name: "NoticesPage",
   components: {
     NewsCard,
     HotNewsSidebar,
-    Footer,
   },
   data() {
     return {
+      // UI 상태
       selectedFilter: "all",
-      currentPage: 1, // 현재 페이지
-      pageSize: 15, // 한 페이지당 뉴스 개수
+      currentPage: 1,
+      pageSize: 15,
+
+      // 서버 데이터
+      totalItems: 0,
+      allNews: [],
+      hotNews: [],
+
       filters: [
         { id: "all", label: "전체" },
         { id: "subscription", label: "청약" },
         { id: "news", label: "뉴스" },
       ],
-      hotNews: [
-        {
-          id: 1,
-          type: "주요 뉴스",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-        {
-          id: 2,
-          type: "주요 뉴스",
-          date: "2025.12.10",
-          title: "서울 원룸 월세 저렴한 1위는 의외로 '이 동네'... 평균 41만원",
-        },
-        {
-          id: 3,
-          type: "주요 뉴스",
-          date: "2025.12.10",
-          title:
-            "잠실 르엘에 장기전세로 살아볼까?... SH '시프트' 1000여 가구 모집",
-        },
-        {
-          id: 4,
-          type: "주요 뉴스",
-          date: "2025.12.10",
-          title:
-            '"엄마, 이제 1000에 72가 기본이래 어떡해"... 서울 원룸 평균 월세, 또 올랐다',
-        },
-        {
-          id: 5,
-          type: "주요 뉴스",
-          date: "2025.12.10",
-          title:
-            '서울시, 3.4조 투입해 내부순환로, 북부간선도로 지하화... "강북 도시 구조 새롭게 정비"',
-        },
-      ],
-      allNews: [
-        {
-          id: 1,
-          type: "주요 뉴스",
-          category: "news",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-        {
-          id: 2,
-          type: "주요 뉴스",
-          category: "news",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-        {
-          id: 3,
-          type: "주요 뉴스",
-          category: "news",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-        {
-          id: 4,
-          type: "주요 뉴스",
-          category: "news",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-        {
-          id: 5,
-          type: "주요 뉴스",
-          category: "news",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-        {
-          id: 6,
-          type: "주요 뉴스",
-          category: "news",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-        {
-          id: 7,
-          type: "주요 뉴스",
-          category: "news",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-        {
-          id: 8,
-          type: "주요 뉴스",
-          category: "news",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-        {
-          id: 9,
-          type: "주요 뉴스",
-          category: "news",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-        {
-          id: 10,
-          type: "주요 뉴스",
-          category: "news",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-        {
-          id: 11,
-          type: "주요 뉴스",
-          category: "news",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-        {
-          id: 12,
-          type: "주요 뉴스",
-          category: "news",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-        {
-          id: 13,
-          type: "주요 뉴스",
-          category: "news",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-        {
-          id: 14,
-          type: "주요 뉴스",
-          category: "news",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-        {
-          id: 15,
-          type: "주요 뉴스",
-          category: "news",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-        {
-          id: 16,
-          type: "주요 뉴스",
-          category: "news",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-        {
-          id: 17,
-          type: "주요 뉴스",
-          category: "news",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-      ],
     };
   },
 
   computed: {
-    // 필터링된 전체 데이터
-    filteredAllNews() {
-      if (this.selectedFilter === "all") return this.allNews;
-      return this.allNews.filter(
-        (news) => news.category === this.selectedFilter
-      );
-    },
-
-    // 페이지에 보여줄 데이터
-    paginatedNews() {
-      const start = (this.currentPage - 1) * this.pageSize;
-      const end = start + this.pageSize;
-      return this.filteredAllNews.slice(start, end);
-    },
-
-    // 총 페이지 수
     totalPages() {
-      return Math.ceil(this.filteredAllNews.length / this.pageSize);
+      const t = Number(this.totalItems || 0);
+      return Math.max(1, Math.ceil(t / this.pageSize));
+    },
+
+    // 페이지 버튼 5칸
+    visiblePages() {
+      const total = this.totalPages;
+      const cur = this.currentPage;
+      const maxButtons = 5;
+
+      if (total <= maxButtons) {
+        return Array.from({ length: total }, (_, i) => i + 1);
+      }
+
+      const half = Math.floor(maxButtons / 2);
+      let start = cur - half;
+      let end = cur + half;
+
+      if (start < 1) {
+        start = 1;
+        end = start + maxButtons - 1;
+      }
+      if (end > total) {
+        end = total;
+        start = end - maxButtons + 1;
+      }
+
+      const pages = [];
+      for (let p = start; p <= end; p++) pages.push(p);
+      return pages;
     },
   },
 
-  methods: {
-    selectFilter(filterId) {
-      this.selectedFilter = filterId;
-      this.currentPage = 1; // 필터 변경 시 페이지 초기화
-    },
-    goPage(page) {
-      if (page < 1 || page > this.totalPages) return;
-      this.currentPage = page;
+  async mounted() {
+    await Promise.all([this.loadHot(), this.loadList()]);
+  },
 
-      // 페이지 바뀔 때 살짝 위로 스크롤 (UX 좋아짐)
-      window.scrollTo({
-        top: 80,
-        behavior: "smooth",
-      });
+  methods: {
+    // UI 필터 id -> 백엔드 typeFilter 값 매핑
+    toTypeFilter(filterId) {
+      if (filterId === "subscription") return "청약";
+      if (filterId === "news") return "뉴스";
+      return "ALL";
+    },
+
+    formatDate(dateLike) {
+      if (!dateLike) return "";
+      const s = String(dateLike);
+      return s.includes("-") ? s.replaceAll("-", ".") : s;
+    },
+
+    mapSummaryToCard(x) {
+      return {
+        id: x.noticeId,
+        type: x.type,
+        date: this.formatDate(x.registDate),
+        title: x.title,
+      };
+    },
+
+    async loadHot() {
+      // HOT = /notice/main?sort=hot
+      try {
+        const res = await fetchNoticeMain({ typeFilter: "ALL", sort: "hot" });
+
+        // pinned + notices 섞여 내려오면 중복 제거해서 5개만
+        const merged = [...(res.pinned || []), ...(res.notices || [])];
+        const seen = new Set();
+        const top5 = [];
+
+        for (const x of merged) {
+          if (!x?.noticeId) continue;
+          if (seen.has(x.noticeId)) continue;
+          seen.add(x.noticeId);
+          top5.push(this.mapSummaryToCard(x));
+          if (top5.length >= 5) break;
+        }
+
+        this.hotNews = top5;
+      } catch (e) {
+        console.warn("HOT 로딩 실패", e);
+        this.hotNews = [];
+      }
+    },
+
+    async loadList() {
+      try {
+        const typeFilter = this.toTypeFilter(this.selectedFilter);
+
+        const res = await fetchNoticeList({
+          typeFilter,
+          sort: "latest",
+          page: this.currentPage,
+        });
+
+        // totalItems로 totalPages 계산해야 함
+        this.totalItems = Number(res.totalItems || 0);
+
+        // 목록은 notices만 그리드에 뿌리자(핫/고정은 사이드바에서 사용)
+        this.allNews = (res.notices || []).map(this.mapSummaryToCard);
+      } catch (e) {
+        console.error("공지 목록 로딩 실패", e);
+        this.totalItems = 0;
+        this.allNews = [];
+      }
+    },
+
+    async selectFilter(filterId) {
+      this.selectedFilter = filterId;
+      this.currentPage = 1;
+      await this.loadList();
+
+      window.scrollTo({ top: 80, behavior: "smooth" });
+    },
+
+    async goPage(page) {
+      const p = Number(page);
+      if (!Number.isFinite(p)) return;
+      if (p < 1 || p > this.totalPages) return;
+
+      this.currentPage = p;
+      await this.loadList();
+
+      window.scrollTo({ top: 80, behavior: "smooth" });
+    },
+
+    goDetail(id) {
+      this.$router.push(`/notice/${id}`);
     },
   },
 };
@@ -423,11 +341,6 @@ export default {
 
   .news-grid {
     grid-template-columns: 1fr;
-  }
-
-  .search-bar {
-    width: 100%;
-    max-width: 520px;
   }
 }
 </style>
