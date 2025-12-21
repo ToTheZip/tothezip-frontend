@@ -82,9 +82,9 @@ export default {
       displayProperties: [],
 
       // ✅ 뉴스 섹션
-      newsCategories: ["ALL", "청약", "뉴스"],
+      newsCategories: ["전체", "청약", "뉴스"],
       displayNews: [],
-      activeNewsCategory: "ALL",
+      activeNewsCategory: "전체",
 
       // // 로딩/에러(선택)
       // isLoadingReco: false,
@@ -221,7 +221,7 @@ export default {
 
     goToNewsList() {
       // 공지사항 페이지
-      this.$router.push("/notice");
+      this.$router.push("/notices");
     },
 
     formatDate(dateLike) {
