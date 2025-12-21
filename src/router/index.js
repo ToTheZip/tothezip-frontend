@@ -3,7 +3,8 @@ import { createRouter, createWebHistory } from "vue-router";
 import HomePage from "@/components/HomePage.vue";
 import SignupPage from "@/components/SignupPage.vue";
 import LoginPage from "@/components/LoginPage.vue";
-import NoticesPage from "@/components/NoticesPage.vue";
+import NoticeListPage from "@/components/NoticeListPage.vue";
+import NoticeDetailPage from "@/components/NoticeDetailPage.vue";
 
 const routes = [
   {
@@ -24,16 +25,16 @@ const routes = [
     meta: { layout: "auth" },
   },
   {
-    path: "/notices",
-    name: "Notices",
-    component: NoticesPage,
+    path: "/notice",
+    name: "NoticeList",
+    component: NoticeListPage,
   },
-  // {
-  //   path: "/notice/:noticeId",
-  //   name: "NoticeDetail",
-  //   component: NoticeDetailPage,
-  //   props: true ,
-  // },
+  {
+    path: "/notice/:noticeId",
+    name: "NoticeDetail",
+    component: NoticeDetailPage,
+    props: true,
+  },
 ];
 
 const router = createRouter({
