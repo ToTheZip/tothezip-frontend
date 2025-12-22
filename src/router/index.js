@@ -5,6 +5,8 @@ import SignupPage from "@/components/SignupPage.vue";
 import LoginPage from "@/components/LoginPage.vue";
 import NoticeListPage from "@/components/NoticeListPage.vue";
 import NoticeDetailPage from "@/components/NoticeDetailPage.vue";
+import SearchMapPage from "@/components/SearchMapPage.vue";
+import TestPage from "@/components/test.vue";
 
 const routes = [
   {
@@ -34,6 +36,12 @@ const routes = [
     name: "NoticeDetail",
     component: NoticeDetailPage,
     props: true,
+  },
+  {
+    path: "/search",
+    name: "SearchMap",
+    component: SearchMapPage,
+    meta: { layout: "noFooter" },
   },
 ];
 
