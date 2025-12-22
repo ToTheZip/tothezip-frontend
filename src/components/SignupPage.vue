@@ -67,6 +67,8 @@ export default {
         sido: "",
         gugun: "",
         tagIds: [],
+        minFloor: null,
+        maxFloor: null,
         minArea: null,
         maxArea: null,
       },

@@ -68,31 +68,89 @@
           </div>
         </div>
 
+        <!-- 희망 층수 -->
+        <div class="block">
+          <div class="field-label">희망 층</div>
+
+          <div class="range-slider-container">
+            <div class="range-values">
+              <span>{{ local.minFloor }}층</span>
+              <span>{{ local.maxFloor }}층</span>
+            </div>
+
+            <div class="dual-range">
+              <div class="range-track"></div>
+              <div
+                class="range-progress"
+                :style="floorProgressStyle"
+              ></div>
+
+              <input
+                type="range"
+                v-model.number="local.minFloor"
+                :min="FLOOR_MIN"
+                :max="FLOOR_MAX"
+                :step="FLOOR_STEP"
+                class="range-slider range-min"
+                @input="clampFloor"
+              />
+              <input
+                type="range"
+                v-model.number="local.maxFloor"
+                :min="FLOOR_MIN"
+                :max="FLOOR_MAX"
+                :step="FLOOR_STEP"
+                class="range-slider range-max"
+                @input="clampFloor"
+              />
+            </div>
+          </div>
+
+          <div class="hint">(층수 입력)</div>
+        </div>
+
+
         <!-- 희망 평수 -->
         <div class="block">
           <div class="field-label">희망 평수</div>
 
-          <div class="row-2">
-            <FormInput
-              label=""
-              v-model="local.minArea"
-              type="number"
-              custom-class="half no-label"
-              input-class="half-input"
-              placeholder="최소"
-            />
-            <FormInput
-              label=""
-              v-model="local.maxArea"
-              type="number"
-              custom-class="half no-label"
-              input-class="half-input"
-              placeholder="최대"
-            />
+          <div class="range-slider-container">
+            <div class="range-values">
+              <span>{{ local.minArea }}평</span>
+              <span>{{ local.maxArea }}평</span>
+            </div>
+
+            <div class="dual-range">
+              <div class="range-track"></div>
+              <div
+                class="range-progress"
+                :style="areaProgressStyle"
+              ></div>
+
+              <input
+                type="range"
+                v-model.number="local.minArea"
+                :min="AREA_MIN"
+                :max="AREA_MAX"
+                :step="AREA_STEP"
+                class="range-slider range-min"
+                @input="clampArea"
+              />
+              <input
+                type="range"
+                v-model.number="local.maxArea"
+                :min="AREA_MIN"
+                :max="AREA_MAX"
+                :step="AREA_STEP"
+                class="range-slider range-max"
+                @input="clampArea"
+              />
+            </div>
           </div>
 
           <div class="hint">(평수 입력, 1평 ≈ 3.3㎡)</div>
         </div>
+
 
         <!-- 완료 버튼 -->
         <div class="actions">
@@ -126,15 +184,43 @@ export default {
       errRegion: "",
       errTags: "",
 
+      FLOOR_MIN: 1,
+      FLOOR_MAX: 100,
+      FLOOR_STEP: 1,
+
+      AREA_MIN: 1,
+      AREA_MAX: 300,
+      AREA_STEP: 1,
+
       // ✅ 처음 한 번만 prop 값을 local로 복사
       local: {
         sido: this.modelValue.sido ?? "",
         gugun: this.modelValue.gugun ?? "",
         tagIds: Array.isArray(this.modelValue.tagIds) ? [...this.modelValue.tagIds] : [],
-        minArea: this.modelValue.minArea ?? "",
-        maxArea: this.modelValue.maxArea ?? "",
+        minFloor: this.modelValue.minFloor ?? 0,
+        maxFloor: this.modelValue.maxFloor ?? 50,
+        minArea: this.modelValue.minArea ?? 0,
+        maxArea: this.modelValue.maxArea ?? 100,
       },
+
     };
+  },
+
+  computed: {
+    floorProgressStyle() {
+      const min = Number(this.local.minFloor ?? 0);
+      const max = Number(this.local.maxFloor ?? 0);
+      const left = ((min - this.FLOOR_MIN) / (this.FLOOR_MAX - this.FLOOR_MIN)) * 100;
+      const width = ((max - min) / (this.FLOOR_MAX - this.FLOOR_MIN)) * 100;
+      return { left: `${left}%`, width: `${width}%` };
+    },
+    areaProgressStyle() {
+      const min = Number(this.local.minArea ?? 0);
+      const max = Number(this.local.maxArea ?? 0);
+      const left = ((min - this.AREA_MIN) / (this.AREA_MAX - this.AREA_MIN)) * 100;
+      const width = ((max - min) / (this.AREA_MAX - this.AREA_MIN)) * 100;
+      return { left: `${left}%`, width: `${width}%` };
+    },
   },
 
   watch: {
@@ -146,6 +232,8 @@ export default {
           sido: v.sido,
           gugun: v.gugun,
           tagIds: v.tagIds,
+          minFloor: v.minFloor === "" ? null : Number(v.minFloor),
+          maxFloor: v.maxFloor === "" ? null : Number(v.maxFloor),
           minArea: v.minArea === "" ? null : Number(v.minArea),
           maxArea: v.maxArea === "" ? null : Number(v.maxArea),
         });
@@ -304,13 +392,29 @@ export default {
     },
 
     toggleTag(tagId) {
-        tagId = Number(tagId);
-        if (!Number.isInteger(tagId) || tagId <= 0) return;
+      tagId = Number(tagId);
+      if (!Number.isInteger(tagId) || tagId <= 0) return;
 
-        const i = this.local.tagIds.indexOf(tagId);
-        if (i >= 0) this.local.tagIds.splice(i, 1);
-        else this.local.tagIds.push(tagId);
-        },
+      const i = this.local.tagIds.indexOf(tagId);
+      if (i >= 0) this.local.tagIds.splice(i, 1);
+      else this.local.tagIds.push(tagId);
+    },
+
+    clampFloor() {
+      let min = Number(this.local.minFloor);
+      let max = Number(this.local.maxFloor);
+      if (min > max) {
+        this.local.minFloor = max;
+      }
+    },
+
+    clampArea() {
+      let min = Number(this.local.minArea);
+      let max = Number(this.local.maxArea);
+      if (min > max) {
+        this.local.minArea = max;
+      }
+    },
   },
 };
 </script>
@@ -545,6 +649,107 @@ export default {
 /* placeholder 느낌 */
 .select option[value=""] {
   color: var(--tothezip-beige-04);
+}
+
+.range-slider-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 8px;
+}
+
+.range-values {
+  display: flex;
+  justify-content: space-between;
+  font-family: "Pretendard", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tothezip-beige-08);
+}
+
+.dual-range {
+  position: relative;
+  height: 20px;
+  display: flex;
+  align-items: center;
+}
+
+.range-track {
+  position: absolute;
+  width: 100%;
+  height: 8px;
+  background: var(--tothezip-beige-02);
+  border-radius: 999px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.range-progress {
+  position: absolute;
+  height: 8px;
+  background: var(--tothezip-beige-07);
+  border-radius: 999px;
+  top: 50%;
+  transform: translateY(-50%);
+  transition: left 0.08s, width 0.08s;
+}
+
+.range-slider {
+  position: absolute;
+  width: 100%;
+  height: 20px;
+  background: transparent;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+  padding: 0;
+}
+
+.range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--tothezip-white);
+  border: 3px solid var(--tothezip-beige-08);
+  pointer-events: all;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.range-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--tothezip-white);
+  border: 3px solid var(--tothezip-beige-08);
+  pointer-events: all;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.range-slider::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 20px;
+  background: transparent;
+  border: none;
+}
+
+.range-slider::-moz-range-track {
+  width: 100%;
+  height: 20px;
+  background: transparent;
+  border: none;
+}
+
+.range-slider.range-min {
+  z-index: 5;
+}
+
+.range-slider.range-max {
+  z-index: 6;
 }
 
 @media (max-width: 500px) {

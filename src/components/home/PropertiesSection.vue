@@ -27,7 +27,7 @@
         v-for="property in properties"
         :key="property.id"
         :property="property"
-        @click="handlePropertyClick(property.id)"
+        @go-map="handleGoMap"
       />
     </div>
   </div>
@@ -74,6 +74,9 @@ export default {
     },
     handlePropertyClick(propertyId) {
       this.$emit("property-click", propertyId);
+    },
+    handleGoMap(aptSeq) {
+      this.$emit("property-go-map", aptSeq);
     },
   },
 };
