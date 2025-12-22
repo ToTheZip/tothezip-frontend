@@ -40,6 +40,7 @@
 </template>
 
 <script>
+import axios from "axios";
 import { KakaoMap, KakaoMapMarker } from "vue3-kakao-maps";
 import FilterTag from "@/components/search/FilterTag.vue";
 import PropertyCard from "@/components/search/PropertyCard.vue";
@@ -58,135 +59,19 @@ export default {
     return {
       center: { lat: 37.572, lng: 126.991 },
       level: 4,
+      mapRef: null,
+
       selectedProperty: null,
-      filterTags: [
-        { id: 1, label: "역세권" },
-        { id: 2, label: "문세권" },
-        { id: 3, label: "10평 ~" },
-        { id: 4, label: "~ 6.7억" },
-        { id: 5, label: "5층 ~ 20층" },
-        { id: 6, label: "2002년 ~" },
-      ],
-      properties: [
-        {
-          id: 1,
-          name: "현대뜨레비앙",
-          dealType: "전세",
-          price: "5억 5천",
-          address: "돈화문로11가길 59",
-          rating: "4.2",
-          tags: ["문세권", "학세권", "병세권"],
-          image: "/images/property-sample.jpg",
-          subImages: [
-            "/images/property-sample.jpg",
-            "/images/property-sample.jpg",
-            "/images/property-sample.jpg",
-            "/images/property-sample.jpg",
-          ],
-          totalImages: 24,
-          buildYear: "2003",
-          isLiked: false,
-        },
-        {
-          id: 2,
-          name: "현대뜨레비앙",
-          dealType: "전세",
-          price: "5억 5천",
-          address: "돈화문로11가길 59",
-          rating: "4.2",
-          tags: ["문세권", "학세권", "병세권"],
-          image: "/images/property-sample.jpg",
-          subImages: [],
-          totalImages: 0,
-          buildYear: "2003",
-          isLiked: false,
-        },
-        {
-          id: 3,
-          name: "현대뜨레비앙",
-          dealType: "전세",
-          price: "5억 5천",
-          address: "돈화문로11가길 59",
-          rating: "4.2",
-          tags: ["문세권", "학세권", "병세권"],
-          image: "/images/property-sample.jpg",
-          subImages: [],
-          totalImages: 0,
-          buildYear: "2003",
-          isLiked: false,
-        },
-        {
-          id: 4,
-          name: "현대뜨레비앙",
-          dealType: "전세",
-          price: "5억 5천",
-          address: "돈화문로11가길 59",
-          rating: "4.2",
-          tags: ["문세권", "학세권", "병세권"],
-          image: "/images/property-sample.jpg",
-          subImages: [],
-          totalImages: 0,
-          buildYear: "2003",
-          isLiked: false,
-        },
-        {
-          id: 5,
-          name: "현대뜨레비앙",
-          dealType: "전세",
-          price: "5억 5천",
-          address: "돈화문로11가길 59",
-          rating: "4.2",
-          tags: ["문세권", "학세권", "병세권"],
-          image: "/images/property-sample.jpg",
-          subImages: [],
-          totalImages: 0,
-          buildYear: "2003",
-          isLiked: false,
-        },
-        {
-          id: 6,
-          name: "현대뜨레비앙",
-          dealType: "전세",
-          price: "5억 5천",
-          address: "돈화문로11가길 59",
-          rating: "4.2",
-          tags: ["문세권", "학세권", "병세권"],
-          image: "/images/property-sample.jpg",
-          subImages: [],
-          totalImages: 0,
-          buildYear: "2003",
-          isLiked: false,
-        },
-        {
-          id: 7,
-          name: "현대뜨레비앙",
-          dealType: "전세",
-          price: "5억 5천",
-          address: "돈화문로11가길 59",
-          rating: "4.2",
-          tags: ["문세권", "학세권", "병세권"],
-          image: "/images/property-sample.jpg",
-          subImages: [],
-          totalImages: 0,
-          buildYear: "2003",
-          isLiked: false,
-        },
-        {
-          id: 8,
-          name: "현대뜨레비앙",
-          dealType: "전세",
-          price: "5억 5천",
-          address: "돈화문로11가길 59",
-          rating: "4.2",
-          tags: ["문세권", "학세권", "병세권"],
-          image: "/images/property-sample.jpg",
-          subImages: [],
-          totalImages: 0,
-          buildYear: "2003",
-          isLiked: false,
-        },
-      ],
+
+      filterTags: [],
+      properties: [],
+
+      loading: false,
+      errorMessage: "",
     };
+  },
+  mounted() {
+    this.fetchSearchResults();
   },
   methods: {
     onLoadKakaoMap(map) {
@@ -194,16 +79,179 @@ export default {
       map.setDraggable(true);
       map.setZoomable(true);
     },
+
+    async fetchSearchResults() {
+      this.loading = true;
+      this.errorMessage = "";
+      this.selectedProperty = null;
+
+      try {
+        const raw = sessionStorage.getItem("tothezip_search");
+        const searchData = raw ? JSON.parse(raw) : null;
+
+        if (!searchData) {
+          this.properties = [];
+          this.filterTags = [];
+          this.errorMessage =
+            "검색 조건이 없습니다. 검색바에서 다시 검색해주세요.";
+          return;
+        }
+
+        this.filterTags = this.makeFilterTags(searchData);
+        const req = this.makeRequestBody(searchData);
+
+        const { data } = await axios.post("/property/search", req);
+
+        this.properties = (data || []).map((b) => {
+          const allImages = Array.isArray(b.images)
+            ? b.images.filter(Boolean)
+            : [];
+          const main = b.imageUrl || allImages[0] || "";
+          const subs =
+            allImages.length > 0 ? allImages.filter((x) => x !== main) : [];
+
+          return {
+            // 공통
+            id: b.aptSeq,
+            aptSeq: b.aptSeq,
+
+            name: b.aptName,
+            address: b.roadAddress,
+            rating: b.propertyRating,
+            tags: b.tags || [],
+            buildYear: b.buildYear,
+            isLiked: false,
+
+            // 카드용 대표 이미지
+            image: main,
+
+            images: allImages.length ? allImages : main ? [main] : [],
+
+            subImages: subs.slice(0, 4),
+            totalImages: allImages.length ? allImages.length : main ? 1 : 0,
+
+            minDealType: b.minDealType || "",
+            minPrice: b.minPrice ?? null,
+            minDeposit: b.minDeposit ?? null,
+
+            // 지도 이동용
+            latitude: b.latitude,
+            longitude: b.longitude,
+          };
+        });
+
+        if (this.properties.length > 0) {
+          const first = this.properties[0];
+          if (first?.latitude && first?.longitude) {
+            this.center = { lat: first.latitude, lng: first.longitude };
+          }
+        }
+      } catch (e) {
+        console.error(e);
+        this.errorMessage = "검색 중 오류가 발생했습니다.";
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    makeRequestBody(searchData) {
+      const opt = searchData.options || {};
+      const prop = searchData.property || null;
+
+      return {
+        sido: searchData.sido || "",
+        gugun: searchData.gugun || "",
+        dong: searchData.dong || "",
+
+        // 아파트 선택했으면 aptSeq로 정확하게 검색
+        aptSeq: prop?.aptSeq || "",
+        aptName: prop?.aptName || "",
+
+        nearSubway: !!opt.nearSubway,
+        nearSchool: !!opt.nearSchool,
+        nearHospital: !!opt.nearHospital,
+        nearCulture: !!opt.nearCulture,
+        dealType: opt.dealType || [],
+
+        depositMin: opt.depositMin,
+        depositMax: opt.depositMax,
+        monthlyRentMin: opt.monthlyRentMin,
+        monthlyRentMax: opt.monthlyRentMax,
+        jeonseMin: opt.jeonseMin,
+        jeonseMax: opt.jeonseMax,
+        buyMin: opt.buyMin,
+        buyMax: opt.buyMax,
+
+        areaMin: opt.areaMin,
+        areaMax: opt.areaMax,
+        floorMin: opt.floorMin,
+        floorMax: opt.floorMax,
+        buildYearMin: opt.buildYearMin,
+        buildYearMax: opt.buildYearMax,
+        ratingMin: opt.ratingMin,
+        ratingMax: opt.ratingMax,
+
+        limit: 50,
+        offset: 0,
+      };
+    },
+
+    makeFilterTags(searchData) {
+      const opt = searchData.options || {};
+      const tags = [];
+      let id = 1;
+
+      if (searchData.location)
+        tags.push({ id: id++, label: searchData.location });
+
+      if (opt.nearSubway) tags.push({ id: id++, label: "역세권" });
+      if (opt.nearSchool) tags.push({ id: id++, label: "학세권" });
+      if (opt.nearHospital) tags.push({ id: id++, label: "병세권" });
+      if (opt.nearCulture) tags.push({ id: id++, label: "문세권" });
+
+      (opt.dealType || []).forEach((d) => tags.push({ id: id++, label: d }));
+
+      if (opt.areaMin != null || opt.areaMax != null)
+        tags.push({
+          id: id++,
+          label: `${opt.areaMin ?? 0}평~${opt.areaMax ?? "∞"}평`,
+        });
+
+      if (opt.floorMin != null || opt.floorMax != null)
+        tags.push({
+          id: id++,
+          label: `${opt.floorMin ?? 0}층~${opt.floorMax ?? "∞"}층`,
+        });
+
+      if (opt.buildYearMin != null || opt.buildYearMax != null)
+        tags.push({
+          id: id++,
+          label: `${opt.buildYearMin ?? 0}년~${opt.buildYearMax ?? "현재"}년`,
+        });
+
+      // 선택된 아파트 표시(선택형)
+      if (searchData.property?.aptName)
+        tags.push({ id: id++, label: searchData.property.aptName });
+
+      return tags;
+    },
+
     selectProperty(property) {
       this.selectedProperty = property;
+
+      // 지도 중심 이동
+      if (property?.latitude && property?.longitude) {
+        this.center = { lat: property.latitude, lng: property.longitude };
+      }
     },
+
     closeDetailPanel() {
       this.selectedProperty = null;
     },
+
     toggleLike() {
-      if (this.selectedProperty) {
+      if (this.selectedProperty)
         this.selectedProperty.isLiked = !this.selectedProperty.isLiked;
-      }
     },
   },
 };
@@ -225,7 +273,6 @@ export default {
   bottom: 0;
 }
 
-/* 왼쪽 검색 결과 사이드바 */
 .search-results-sidebar {
   position: absolute;
   left: 0;

@@ -14,30 +14,28 @@
       <div class="images-area">
         <div class="main-image-wrapper">
           <div class="main-image-box">
-            <img
-              :src="property.image"
-              :alt="property.name"
-              class="main-image"
-            />
+            <img :src="mainImage" :alt="property.name" class="main-image" />
           </div>
         </div>
 
         <div class="sub-images-wrapper">
           <div
-            v-for="(img, index) in property.subImages || []"
+            v-for="(img, index) in subThumbs"
             :key="index"
             class="sub-image-box"
           >
             <img
               :src="img"
-              :alt="`${property.name} ${index + 1}`"
+              :alt="`${property.name} ${index + 2}`"
               class="sub-image"
             />
+
+            <!-- ✅ 4번째 썸네일(= index 3) 위에 +n -->
             <div
-              v-if="index === 3 && property.totalImages > 4"
+              v-if="index === 3 && remainingCount > 0"
               class="image-more-overlay"
             >
-              <span class="more-text">+ {{ property.totalImages - 4 }}</span>
+              <span class="more-text">+ {{ remainingCount }}</span>
             </div>
           </div>
         </div>
@@ -45,9 +43,9 @@
 
       <div class="building-info-section">
         <div class="tags-row-detail">
-          <span v-for="tag in property.tags" :key="tag" class="detail-tag"
-            >#{{ tag }}</span
-          >
+          <span v-for="tag in property.tags" :key="tag" class="detail-tag">
+            #{{ tag }}
+          </span>
         </div>
 
         <div class="building-name">
@@ -76,14 +74,6 @@
         <h3 class="section-title">매물</h3>
         <div class="listings-placeholder">
           <p>매물 리스트 영역</p>
-          <ul>
-            <li>type(전세, 월세..)</li>
-            <li>가격</li>
-            <li>보증금</li>
-            <li>평수</li>
-            <li>층수</li>
-            <li>등록일자</li>
-          </ul>
         </div>
       </div>
 
@@ -91,11 +81,6 @@
         <h3 class="section-title">리뷰</h3>
         <div class="reviews-placeholder">
           <p>리뷰 영역</p>
-          <ul>
-            <li>사용자 프로필</li>
-            <li>리뷰 내용</li>
-            <li>별점</li>
-          </ul>
         </div>
       </div>
     </div>
@@ -104,7 +89,6 @@
 
 <script>
 import ChevronLeft from "@/components/icons/ChevronLeft.vue";
-import HeartFill from "@/components/icons/HeartFill.vue";
 import HeartOutline from "@/components/icons/HeartOutline.vue";
 import MapPin from "@/components/icons/MapPin.vue";
 import Building from "@/components/icons/Building.vue";
@@ -113,18 +97,44 @@ export default {
   name: "PropertyDetailPanel",
   components: {
     ChevronLeft,
-    HeartFill,
     HeartOutline,
     MapPin,
     Building,
   },
   props: {
-    property: {
-      type: Object,
-      required: true,
-    },
+    property: { type: Object, required: true },
   },
   emits: ["close", "toggle-like"],
+  computed: {
+    allImages() {
+      // ✅ DTO의 images가 있으면 그걸 우선
+      const arr = Array.isArray(this.property?.images)
+        ? this.property.images
+        : [];
+
+      // fallback(예전 구조)
+      const main = this.property?.image ? [this.property.image] : [];
+      const subs = Array.isArray(this.property?.subImages)
+        ? this.property.subImages
+        : [];
+
+      const merged = arr.length ? arr : [...main, ...subs];
+
+      // 중복 제거 + 빈값 제거
+      return Array.from(new Set(merged)).filter(Boolean);
+    },
+    mainImage() {
+      return this.allImages[0] || this.property?.image || "";
+    },
+    // 화면에 보이는 서브 썸네일은 최대 4장
+    subThumbs() {
+      return this.allImages.slice(1, 5); // 2~5번째(최대 4장)
+    },
+    remainingCount() {
+      // 전체가 5장 초과면 (main 1 + thumbs 4) 이후 개수
+      return Math.max(0, this.allImages.length - 5);
+    },
+  },
 };
 </script>
 
@@ -313,32 +323,6 @@ export default {
   background: rgba(244, 236, 231, 0.3);
   border-radius: 10px;
   text-align: center;
-}
-
-.chart-placeholder p,
-.listings-placeholder p,
-.reviews-placeholder p {
-  font-family: "Pretendard", sans-serif;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--tothezip-gray-04);
-  margin: 0 0 10px 0;
-}
-
-.listings-placeholder ul,
-.reviews-placeholder ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  text-align: left;
-}
-
-.listings-placeholder li,
-.reviews-placeholder li {
-  font-family: "Pretendard", sans-serif;
-  font-size: 11px;
-  color: var(--tothezip-gray-04);
-  padding: 3px 0;
 }
 
 .heart-icon {

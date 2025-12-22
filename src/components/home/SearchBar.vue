@@ -66,7 +66,7 @@
           <div class="field-title">매물명</div>
           <div class="field-search">
             <div v-if="selectedProperty" class="selected-text">
-              {{ selectedProperty }}
+              {{ selectedProperty.aptName }}
             </div>
             <div v-else class="placeholder-text">검색어 입력</div>
           </div>
@@ -330,19 +330,28 @@ export default {
     // 매물명 검색 관련 메서드
     handlePropertySelect(property) {
       this.selectedProperty = property;
-      this.propertySearchQuery = property;
+      this.propertySearchQuery = property.aptName;
       this.closePanel();
     },
 
     // 검색 실행
     handleSearch() {
       const searchData = {
+        sido: this.selectedSido,
+        gugun: this.selectedGugun,
+        dong: this.selectedDong,
         location: this.selectedLocation,
         options: this.optionsData,
-        propertyName: this.selectedProperty,
+        property: this.selectedProperty,
       };
 
-      this.$emit("search", searchData);
+      // this.$emit("search", searchData);
+
+      sessionStorage.setItem("tothezip_search", JSON.stringify(searchData));
+
+      if (this.$route.path !== "/search") {
+        this.$router.push("/search");
+      }
     },
   },
 };

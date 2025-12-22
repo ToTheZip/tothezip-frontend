@@ -40,7 +40,7 @@ export default {
   props: {
     initialQuery: { type: String, default: "" },
 
-    // ✅ 지역 상태 받기
+    // 지역 상태 받기
     sido: { type: String, default: "" },
     gugun: { type: String, default: "" },
     dong: { type: String, default: "" },
@@ -57,7 +57,7 @@ export default {
     initialQuery(v) {
       this.searchQuery = v || "";
     },
-    // ✅ 지역이 바뀌면 같은 검색어로 다시 조회
+    // 지역이 바뀌면 같은 검색어로 다시 조회
     sido() {
       this.debouncedSearch();
     },
@@ -89,10 +89,10 @@ export default {
 
       this.loading = true;
       try {
-        const res = await axios.get("/property/search", {
+        const res = await axios.get("/property/autocomplete", {
           params: {
             query: q,
-            // ✅ 지역 미선택이면 아예 안 보내거나 null 처리
+            // 지역 미선택이면 아예 안 보내거나 null 처리
             sido: this.sido || null,
             gugun: this.gugun || null,
             dong: this.dong || null,
@@ -108,7 +108,7 @@ export default {
     selectProperty(item) {
       this.searchQuery = item.aptName;
       // 선택 시 aptName만 올려도 되고, aptSeq까지 올려두면 나중에 상세조회 편함
-      this.$emit("select", item.aptName);
+      this.$emit("select", item);
       // 추천: this.$emit("select", item); 로 바꾸면 더 좋음(aptSeq 활용 가능)
     },
   },
