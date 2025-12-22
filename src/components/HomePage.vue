@@ -29,7 +29,7 @@
 
       <!-- Search Overlap -->
       <div class="search-overlap">
-        <SearchBar @search="handleSearch" />
+        <SearchBar @search="goSearch" />
       </div>
     </div>
 
@@ -109,16 +109,25 @@ export default {
   },
 
   methods: {
-    handleSearch(searchData) {
-      console.log("Search:", searchData);
-      // 검색 로직은 별도 구현
+    goSearch(searchData) {
+      this.$router.push({
+        path: "/search",
+        query: {
+          sido: searchData.sido || "",
+          gugun: searchData.gugun || "",
+          dong: searchData.dong || "",
+          aptName: searchData.propertyName || "",
+          // 옵션은 JSON 문자열로 전달
+          opts: encodeURIComponent(JSON.stringify(searchData.options || {})),
+        },
+      });
     },
 
     goToMapPage(aptSeq) {
       this.$router.push({
-        name: "SearchMap", 
+        name: "SearchMap",
         query: {
-          aptSeq,  
+          aptSeq,
         },
       });
     },
@@ -168,7 +177,7 @@ export default {
           name: p.aptName,
           address: p.roadAddress,
           rating: p.propertyRating,
-          tags: p.tags || [], // ✅ 서버가 tags 내려주면 바로 반영
+          tags: p.tags || [], // 서버가 tags 내려주면 바로 반영
           image: p.imageUrl || "", // PropertyCard가 image를 보니까 유지
         }));
       } catch (e) {
