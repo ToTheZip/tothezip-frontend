@@ -1,5 +1,5 @@
 <template>
-  <div class="notices-page">
+  <div class="notices-page" :class="{ 'calendar-mode': viewMode === 'calendar' }">
     <div class="content-wrapper">
       <!-- HOT 뉴스 사이드바 -->
       <HotNewsSidebar :hotNews="hotNews" />
@@ -99,33 +99,33 @@
                 role="gridcell"
                 @click.self="d.events.length > 2 && openDayModal(d)"
               >
-                <div class="day-number">{{ d.day }}</div>
+              <div class="day-number">{{ d.day }}</div>
 
-                <div class="day-events">
-                  <button
-                    v-for="ev in d.events.slice(0, 2)"
-                    :key="ev._key"
-                    class="event-chip"
-                    :class="chipClass(ev)"
-                    @click="goDetail(ev.id)"
-                    :title="ev.title"
-                  >
-                    <span class="chip-tag" :class="ev.kind">{{ ev.kindLabel }}</span>
-                    <span class="chip-title">{{ ev.title }}</span>
-                  </button>
+              <div class="day-events">
+                <button
+                  v-for="ev in d.events.slice(0, 2)"
+                  :key="ev._key"
+                  class="event-chip"
+                  :class="chipClass(ev)"
+                  @click="goDetail(ev.id)"
+                  :title="ev.title"
+                >
+                  <span class="chip-tag" :class="ev.kind">{{ ev.kindLabel }}</span>
+                  <span class="chip-title">{{ ev.title }}</span>
+                </button>
 
-                  <button
-                    v-if="d.events.length > 2"
-                    type="button"
-                    class="more-chip"
-                    @click="openDayModal(d)"
-                    :aria-label="`${d.day}일 일정 더보기`"
-                  >
-                    +{{ d.events.length - 2 }}
-                  </button>
-                </div>
+                <button
+                  v-if="d.events.length > 2"
+                  type="button"
+                  class="more-chip"
+                  @click="openDayModal(d)"
+                  :aria-label="`${d.day}일 일정 더보기`"
+                >
+                  +{{ d.events.length - 2 }}
+                </button>
               </div>
             </div>
+          </div>
 
             <!-- ✅ (3개 이상) 날짜 클릭 모달 -->
             <div v-if="dayModal.open" class="day-modal-overlay" @click.self="closeDayModal">
@@ -164,7 +164,7 @@
 import NewsCard from "@/components/home/NewsCard.vue";
 import HotNewsSidebar from "@/components/notices/HotNewsSidebar.vue";
 
-import { fetchNoticeList, fetchNoticeMain } from "@/api/notice";
+import { fetchNoticeList, fetchNoticeMain, fetchNoticeCalendar } from "@/api/notice";
 import { useAuthStore } from "@/stores/auth";
 
 export default {
@@ -305,6 +305,19 @@ export default {
       }
       return days;
     },
+    calendarWeeks() {
+      const weeks = [];
+      let week = [];
+
+      for (const d of this.calendarDays) {
+        week.push(d);
+        if (week.length === 7) {
+          weeks.push(week);
+          week = [];
+        }
+      }
+      return weeks;
+    }
   },
 
   async mounted() {
@@ -435,139 +448,215 @@ export default {
       await this.loadCalendarEvents();
     },
 
+    // async loadCalendarEvents() {
+    //   this.calendarLoading = true;
+    //   try {
+    //     // subscription 전체를 페이지 단위로 쭉 가져온 뒤, 현재 달만 필터
+    //     const typeFilter = "청약";
+    //     const cursor = this.calendarCursor;
+    //     const y = cursor.getFullYear();
+    //     const m = cursor.getMonth();
+    //     const monthStart = new Date(y, m, 1);
+    //     const monthEnd = new Date(y, m + 1, 0); // last day
+
+    //     const maxPages = 20; // 안전장치
+    //     let page = 1;
+    //     let totalPages = 1;
+    //     const acc = [];
+
+    //     while (page <= totalPages && page <= maxPages) {
+    //       const res = await fetchNoticeList({
+    //         typeFilter,
+    //         sort: "latest",
+    //         page,
+    //       });
+
+    //       const totalItems = Number(res.totalItems || 0);
+    //       totalPages = Math.max(1, Math.ceil(totalItems / this.pageSize));
+
+    //       // 캘린더는 날짜 필드(start/end/announcement)를 써야 해서 raw를 유지
+    //       const items = res.notices || [];
+    //       acc.push(...items);
+
+    //       // 다음 페이지
+    //       page += 1;
+    //     }
+
+    //     const evs = [];
+
+    //     // 날짜 필드 추정(백엔드 DTO가 camelCase일 확률이 높지만, snake_case도 방어)
+    //     const announceKeys = [
+    //       "announcementDate",
+    //       "announceDate",
+    //       "announcement_date",
+    //       "registDate",
+    //       "regist_date",
+    //       "createdAt",
+    //       "created_at",
+    //       "noticeDate",
+    //       "notice_date",
+    //       "date",
+    //     ];
+    //     const startKeys = [
+    //       "startDate",
+    //       "start_date",
+    //       "applyStartDate",
+    //       "apply_start_date",
+    //       "subscriptionStartDate",
+    //       "subscription_start_date",
+    //       "receiptStartDate",
+    //       "receipt_start_date",
+    //     ];
+    //     const endKeys = [
+    //       "endDate",
+    //       "end_date",
+    //       "applyEndDate",
+    //       "apply_end_date",
+    //       "subscriptionEndDate",
+    //       "subscription_end_date",
+    //       "receiptEndDate",
+    //       "receipt_end_date",
+    //     ];
+
+    //     for (const x of acc) {
+    //       const id = x.noticeId ?? x.id;
+    //       const title = x.title ?? "";
+    //       // const type = x.type; // 필요하면 분기용으로 사용
+
+    //       const announceYmd = this.parseYmd(this.getFirstField(x, announceKeys));
+    //       let startYmd = this.parseYmd(this.getFirstField(x, startKeys));
+    //       let endYmd = this.parseYmd(this.getFirstField(x, endKeys));
+
+    //       // 1) 공고일(announcement_date) 이벤트
+    //       if (announceYmd && this.isYmdInMonth(announceYmd, monthStart, monthEnd)) {
+    //         evs.push({
+    //           id,
+    //           title,
+    //           ymd: announceYmd,
+    //           kind: "announce",
+    //           kindLabel: "공고",
+    //           _key: `${id}-announce-${announceYmd}`,
+    //         });
+    //       }
+
+    //       // 2) 접수기간(start_date ~ end_date) 이벤트 (범위는 날짜별로 펼쳐서 표시)
+    //       if (startYmd && endYmd) {
+    //         // start > end 케이스 방어
+    //         if (startYmd > endYmd) {
+    //           const tmp = startYmd;
+    //           startYmd = endYmd;
+    //           endYmd = tmp;
+    //         }
+
+    //         const range = this.enumerateYmdRange(startYmd, endYmd, 60);
+    //         for (const ymd of range) {
+    //           if (!this.isYmdInMonth(ymd, monthStart, monthEnd)) continue;
+    //           const isStart = ymd === startYmd;
+    //           const isEnd = ymd === endYmd;
+    //           evs.push({
+    //             id,
+    //             title,
+    //             ymd,
+    //             kind: "range",
+    //             kindLabel: isStart && isEnd ? "접수" : isStart ? "접수 시작" : isEnd ? "접수 마감" : "접수",
+    //             rangeLabel: `${this.formatYmd(startYmd)}~${this.formatYmd(endYmd)}`,
+    //             isStart,
+    //             isEnd,
+    //             isMid: !isStart && !isEnd,
+    //             _key: `${id}-range-${ymd}`,
+    //           });
+    //         }
+    //       } else {
+    //         // start/end 둘 중 하나만 있으면 단일 '접수'로 표시
+    //         const single = startYmd || endYmd;
+    //         if (single && this.isYmdInMonth(single, monthStart, monthEnd)) {
+    //           evs.push({
+    //             id,
+    //             title,
+    //             ymd: single,
+    //             kind: "range",
+    //             kindLabel: "접수",
+    //             rangeLabel: this.formatYmd(single),
+    //             isStart: true,
+    //             isEnd: true,
+    //             isMid: false,
+    //             _key: `${id}-range-${single}`,
+    //           });
+    //         }
+    //       }
+    //     }
+
+    //     this.calendarEvents = evs;
+    //   } catch (e) {
+    //     console.error("캘린더 일정 로딩 실패", e);
+    //     this.calendarEvents = [];
+    //   } finally {
+    //     this.calendarLoading = false;
+    //   }
+    // },
     async loadCalendarEvents() {
       this.calendarLoading = true;
+
       try {
-        // subscription 전체를 페이지 단위로 쭉 가져온 뒤, 현재 달만 필터
-        const typeFilter = "청약";
         const cursor = this.calendarCursor;
-        const y = cursor.getFullYear();
-        const m = cursor.getMonth();
-        const monthStart = new Date(y, m, 1);
-        const monthEnd = new Date(y, m + 1, 0); // last day
+        const year = cursor.getFullYear();
+        const month = cursor.getMonth() + 1; // ✅ 1~12
 
-        const maxPages = 20; // 안전장치
-        let page = 1;
-        let totalPages = 1;
-        const acc = [];
+        const res = await fetchNoticeCalendar({ year, month });
 
-        while (page <= totalPages && page <= maxPages) {
-          const res = await fetchNoticeList({
-            typeFilter,
-            sort: "latest",
-            page,
-          });
+        // CalendarListDto 대응
+        const rows = res?.items || res?.list || [];
 
-          const totalItems = Number(res.totalItems || 0);
-          totalPages = Math.max(1, Math.ceil(totalItems / this.pageSize));
-
-          // 캘린더는 날짜 필드(start/end/announcement)를 써야 해서 raw를 유지
-          const items = res.notices || [];
-          acc.push(...items);
-
-          // 다음 페이지
-          page += 1;
-        }
+        const monthStart = new Date(year, month - 1, 1);
+        const monthEnd = new Date(year, month, 0);
 
         const evs = [];
 
-        // 날짜 필드 추정(백엔드 DTO가 camelCase일 확률이 높지만, snake_case도 방어)
-        const announceKeys = [
-          "announcementDate",
-          "announceDate",
-          "announcement_date",
-          "registDate",
-          "regist_date",
-          "createdAt",
-          "created_at",
-          "noticeDate",
-          "notice_date",
-          "date",
-        ];
-        const startKeys = [
-          "startDate",
-          "start_date",
-          "applyStartDate",
-          "apply_start_date",
-          "subscriptionStartDate",
-          "subscription_start_date",
-          "receiptStartDate",
-          "receipt_start_date",
-        ];
-        const endKeys = [
-          "endDate",
-          "end_date",
-          "applyEndDate",
-          "apply_end_date",
-          "subscriptionEndDate",
-          "subscription_end_date",
-          "receiptEndDate",
-          "receipt_end_date",
-        ];
+        for (const r of rows) {
+          const id = r.subscriptionId;
+          const title = r.name;
 
-        for (const x of acc) {
-          const id = x.noticeId ?? x.id;
-          const title = x.title ?? "";
-          // const type = x.type; // 필요하면 분기용으로 사용
+          const announceYmd = this.parseYmd(r.announcementDate);
+          const startYmd = this.parseYmd(r.startDate);
+          const endYmd = this.parseYmd(r.endDate);
 
-          const announceYmd = this.parseYmd(this.getFirstField(x, announceKeys));
-          let startYmd = this.parseYmd(this.getFirstField(x, startKeys));
-          let endYmd = this.parseYmd(this.getFirstField(x, endKeys));
-
-          // 1) 공고일(announcement_date) 이벤트
+          /* 1️⃣ 공고일 (announcement_date) */
           if (announceYmd && this.isYmdInMonth(announceYmd, monthStart, monthEnd)) {
             evs.push({
               id,
               title,
               ymd: announceYmd,
               kind: "announce",
-              kindLabel: "공고",
-              _key: `${id}-announce-${announceYmd}`,
+              kindLabel: "발표",
+              _key: `ann-${id}-${announceYmd}`,
             });
           }
 
-          // 2) 접수기간(start_date ~ end_date) 이벤트 (범위는 날짜별로 펼쳐서 표시)
+          /* 2️⃣ 접수기간 (start ~ end) */
           if (startYmd && endYmd) {
-            // start > end 케이스 방어
-            if (startYmd > endYmd) {
-              const tmp = startYmd;
-              startYmd = endYmd;
-              endYmd = tmp;
-            }
+            const range = this.enumerateYmdRange(startYmd, endYmd, 62);
 
-            const range = this.enumerateYmdRange(startYmd, endYmd, 60);
             for (const ymd of range) {
               if (!this.isYmdInMonth(ymd, monthStart, monthEnd)) continue;
+
               const isStart = ymd === startYmd;
               const isEnd = ymd === endYmd;
+
               evs.push({
                 id,
                 title,
                 ymd,
                 kind: "range",
-                kindLabel: isStart && isEnd ? "접수" : isStart ? "접수 시작" : isEnd ? "접수 마감" : "접수",
+                kindLabel: isStart
+                  ? "접수 시작"
+                  : isEnd
+                  ? "접수 마감"
+                  : "접수 중",
                 rangeLabel: `${this.formatYmd(startYmd)}~${this.formatYmd(endYmd)}`,
                 isStart,
                 isEnd,
                 isMid: !isStart && !isEnd,
-                _key: `${id}-range-${ymd}`,
-              });
-            }
-          } else {
-            // start/end 둘 중 하나만 있으면 단일 '접수'로 표시
-            const single = startYmd || endYmd;
-            if (single && this.isYmdInMonth(single, monthStart, monthEnd)) {
-              evs.push({
-                id,
-                title,
-                ymd: single,
-                kind: "range",
-                kindLabel: "접수",
-                rangeLabel: this.formatYmd(single),
-                isStart: true,
-                isEnd: true,
-                isMid: false,
-                _key: `${id}-range-${single}`,
+                _key: `rng-${id}-${ymd}`,
               });
             }
           }
@@ -581,6 +670,7 @@ export default {
         this.calendarLoading = false;
       }
     },
+
     // UI 필터 id -> 백엔드 typeFilter 값 매핑
     toTypeFilter(filterId) {
       if (filterId === "subscription") return "청약";
@@ -652,9 +742,14 @@ export default {
 
     async selectFilter(filterId) {
       if (this.viewMode === "calendar" && filterId !== "subscription") {
-        alert("캘린더 보기에서는 청약 일정만 볼 수 있어요.");
-        this.selectedFilter = "subscription";
-        await this.loadCalendarEvents();
+        this.viewMode = "list";
+
+        this.selectedFilter = filterId;
+        this.currentPage = 1;
+
+        await this.loadList();
+
+        window.scrollTo({ top: 80, behavior: "smooth" });
         return;
       }
 
@@ -689,6 +784,44 @@ export default {
       }
       this.$router.push({ name: "NoticeDetail", params: { noticeId: id } });
     },
+
+    getWeekRangeBars(week) {
+      const bars = [];
+
+      // 같은 subscriptionId끼리 묶기
+      const rangeEvents = this.calendarEvents.filter(e => e.kind === "range");
+
+      const byId = {};
+      for (const ev of rangeEvents) {
+        if (!byId[ev.id]) byId[ev.id] = [];
+        byId[ev.id].push(ev);
+      }
+
+      for (const id in byId) {
+        const evs = byId[id];
+
+        // 이 주에 걸치는 날짜만
+        const inWeek = evs.filter(e =>
+          week.some(d => d.ymd === e.ymd)
+        );
+        if (inWeek.length === 0) continue;
+
+        const cols = inWeek.map(e =>
+          week.findIndex(d => d.ymd === e.ymd)
+        );
+
+        bars.push({
+          id,
+          title: inWeek[0].title,
+          startCol: Math.min(...cols),
+          span: Math.max(...cols) - Math.min(...cols) + 1,
+          isStart: inWeek.some(e => e.isStart),
+          isEnd: inWeek.some(e => e.isEnd),
+        });
+      }
+      return bars;
+    }
+
   },
 };
 </script>
@@ -700,20 +833,32 @@ export default {
 }
 
 /* 콘텐츠 영역 */
-.content-wrapper {
+/* .content-wrapper {
   max-width: 1280px;
   margin: 0 auto;
   padding: 42px 46px;
   display: flex;
   gap: clamp(20px, 3vw, 36px);
   align-items: flex-start;
+} */
+ .content-wrapper {
+  max-width: min(1800px, 96vw);
+  margin: 0 auto;
+  padding: 36px 32px;
+  display: flex;
+  gap: 28px;
 }
+
 
 /* 메인 공지사항 영역 */
 .notices-main {
   flex: 1;
   min-width: 0;
-  max-width: 920px;
+  max-width: 1280px;
+}
+ 
+.notices-page.calendar-mode .notices-main {
+  max-width: none;
 }
 
 /* 필터 섹션 */
