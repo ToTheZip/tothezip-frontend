@@ -28,7 +28,9 @@
         <!-- ⭐ 별점 (이미지 박스 기준) -->
         <div class="rating-badge">
           <StarIcon class="star-icon" />
-          <span class="rating-value">{{ Number(property.rating).toFixed(1) }}</span>
+          <span class="rating-value">{{
+            Number(property.rating).toFixed(1)
+          }}</span>
         </div>
 
         <!-- ✅ Hover 오버레이 + 찜 버튼 -->
@@ -102,13 +104,15 @@ export default {
       // ✅ 임시 상태(나중에 서버/스토어로 연결하면 됨)
       liked: false,
       isBouncing: false,
-      fallbackImg: new URL("@/assets/images/dozip_logo.png", import.meta.url).href,
-      imgSrc: ""
+      fallbackImg: new URL("@/assets/images/dozip_logo.png", import.meta.url)
+        .href,
+      imgSrc: "",
     };
   },
   mounted() {
     // ✅ 백엔드가 imageUrl로 줄 가능성이 높으니 둘 다 대응
-    this.imgSrc = this.property.imageUrl || this.property.image || this.fallbackImg;
+    this.imgSrc =
+      this.property.imageUrl || this.property.image || this.fallbackImg;
   },
 
   watch: {
@@ -226,7 +230,7 @@ export default {
   align-items: center;
   gap: 3px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-  z-index: 3;
+  z-index: 1;
 }
 
 .star-icon {
@@ -258,7 +262,7 @@ export default {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.18s ease;
-  z-index: 2;
+  z-index: 1;
 }
 
 /* hover 시 오버레이 노출 */
