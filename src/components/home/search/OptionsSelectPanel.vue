@@ -460,6 +460,58 @@ export default {
         this.localOptions = { ...newVal };
       },
     },
+    "localOptions.areaMin"(v) {
+      if (v > this.localOptions.areaMax) this.localOptions.areaMax = v;
+    },
+    "localOptions.areaMax"(v) {
+      if (v < this.localOptions.areaMin) this.localOptions.areaMin = v;
+    },
+    "localOptions.floorMin"(v) {
+      if (v > this.localOptions.floorMax) this.localOptions.floorMax = v;
+    },
+    "localOptions.floorMax"(v) {
+      if (v < this.localOptions.floorMin) this.localOptions.floorMin = v;
+    },
+    "localOptions.buildYearMin"(v) {
+      if (v > this.localOptions.buildYearMax)
+        this.localOptions.buildYearMax = v;
+    },
+    "localOptions.buildYearMax"(v) {
+      if (v < this.localOptions.buildYearMin)
+        this.localOptions.buildYearMin = v;
+    },
+    "localOptions.ratingMin"(v) {
+      if (v > this.localOptions.ratingMax) this.localOptions.ratingMax = v;
+    },
+    "localOptions.ratingMax"(v) {
+      if (v < this.localOptions.ratingMin) this.localOptions.ratingMin = v;
+    },
+    "localOptions.depositMin"(v) {
+      if (v > this.localOptions.depositMax) this.localOptions.depositMax = v;
+    },
+    "localOptions.depositMax"(v) {
+      if (v < this.localOptions.depositMin) this.localOptions.depositMin = v;
+    },
+    "localOptions.monthlyRentMin"(v) {
+      if (v > this.localOptions.monthlyRentMax)
+        this.localOptions.monthlyRentMax = v;
+    },
+    "localOptions.monthlyRentMax"(v) {
+      if (v < this.localOptions.monthlyRentMin)
+        this.localOptions.monthlyRentMin = v;
+    },
+    "localOptions.jeonseMin"(v) {
+      if (v > this.localOptions.jeonseMax) this.localOptions.jeonseMax = v;
+    },
+    "localOptions.jeonseMax"(v) {
+      if (v < this.localOptions.jeonseMin) this.localOptions.jeonseMin = v;
+    },
+    "localOptions.buyMin"(v) {
+      if (v > this.localOptions.buyMax) this.localOptions.buyMax = v;
+    },
+    "localOptions.buyMax"(v) {
+      if (v < this.localOptions.buyMin) this.localOptions.buyMin = v;
+    },
   },
   methods: {
     toggleDealType(type) {
@@ -471,7 +523,7 @@ export default {
       }
     },
     apply() {
-      this.$emit("apply", this.localOptions);
+      this.$emit("apply", JSON.parse(JSON.stringify(this.localOptions)));
     },
     reset() {
       this.localOptions = {

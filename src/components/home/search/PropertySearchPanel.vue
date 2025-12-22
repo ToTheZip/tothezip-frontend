@@ -5,22 +5,26 @@
         <input
           type="text"
           v-model="searchQuery"
-          @input="search"
+          @input="onInput"
           placeholder="아파트 이름을 입력하세요"
           class="property-search-input"
           ref="searchInput"
         />
-        <div v-if="filteredProperties.length > 0" class="property-list">
+
+        <div v-if="loading" class="no-results">불러오는 중...</div>
+
+        <div v-else-if="results.length > 0" class="property-list">
           <div
-            v-for="property in filteredProperties"
-            :key="property"
+            v-for="item in results"
+            :key="item.aptSeq"
             class="property-item"
-            @click="selectProperty(property)"
+            @click="selectProperty(item)"
           >
-            {{ property }}
+            {{ item.aptName }}
           </div>
         </div>
-        <div v-else-if="searchQuery" class="no-results">
+
+        <div v-else-if="searchQuery.trim()" class="no-results">
           검색 결과가 없습니다.
         </div>
       </div>
@@ -29,81 +33,102 @@
 </template>
 
 <script>
+import axios from "axios";
+
 export default {
   name: "PropertySearchPanel",
   props: {
-    initialQuery: {
-      type: String,
-      default: "",
-    },
+    initialQuery: { type: String, default: "" },
+
+    // ✅ 지역 상태 받기
+    sido: { type: String, default: "" },
+    gugun: { type: String, default: "" },
+    dong: { type: String, default: "" },
   },
   data() {
     return {
       searchQuery: this.initialQuery,
-      filteredProperties: [],
-
-      // 실제로는 API에서 가져와야 함
-      allProperties: [
-        "래미안퍼스티지",
-        "헬리오시티",
-        "아크로리버파크",
-        "롯데캐슬",
-        "자이아파트",
-        "푸르지오",
-        "힐스테이트",
-        "래미안",
-        "아크로",
-        "디에이치",
-        "센트럴",
-        "더샵",
-        "파크",
-        "트리마제",
-      ],
+      results: [],
+      loading: false,
+      timer: null,
     };
   },
+  watch: {
+    initialQuery(v) {
+      this.searchQuery = v || "";
+    },
+    // ✅ 지역이 바뀌면 같은 검색어로 다시 조회
+    sido() {
+      this.debouncedSearch();
+    },
+    gugun() {
+      this.debouncedSearch();
+    },
+    dong() {
+      this.debouncedSearch();
+    },
+  },
   mounted() {
-    this.$nextTick(() => {
-      if (this.$refs.searchInput) {
-        this.$refs.searchInput.focus();
-      }
-    });
+    this.$nextTick(() => this.$refs.searchInput?.focus());
+    if ((this.searchQuery || "").trim()) this.fetch();
   },
   methods: {
-    search() {
-      if (!this.searchQuery) {
-        this.filteredProperties = [];
+    onInput() {
+      this.debouncedSearch();
+    },
+    debouncedSearch() {
+      clearTimeout(this.timer);
+      this.timer = setTimeout(() => this.fetch(), 250);
+    },
+    async fetch() {
+      const q = (this.searchQuery || "").trim();
+      if (!q) {
+        this.results = [];
         return;
       }
 
-      // 실제로는 API 호출로 대체해야 함
-      this.filteredProperties = this.allProperties.filter((property) =>
-        property.toLowerCase().includes(this.searchQuery.toLowerCase())
-      );
+      this.loading = true;
+      try {
+        const res = await axios.get("/property/search", {
+          params: {
+            query: q,
+            // ✅ 지역 미선택이면 아예 안 보내거나 null 처리
+            sido: this.sido || null,
+            gugun: this.gugun || null,
+            dong: this.dong || null,
+          },
+        });
+        this.results = Array.isArray(res.data) ? res.data : [];
+      } catch (e) {
+        this.results = [];
+      } finally {
+        this.loading = false;
+      }
     },
-    selectProperty(property) {
-      this.searchQuery = property;
-      this.$emit("select", property);
+    selectProperty(item) {
+      this.searchQuery = item.aptName;
+      // 선택 시 aptName만 올려도 되고, aptSeq까지 올려두면 나중에 상세조회 편함
+      this.$emit("select", item.aptName);
+      // 추천: this.$emit("select", item); 로 바꾸면 더 좋음(aptSeq 활용 가능)
     },
   },
 };
 </script>
 
 <style scoped>
+/* 너 기존 스타일 그대로 사용 */
 .panel {
   background: white;
   border-radius: 24px;
 }
-
 .panel-content {
   padding: 24px;
 }
-
 .property-search {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
-
 .property-search-input {
   width: 100%;
   padding: 12px 16px;
@@ -113,11 +138,9 @@ export default {
   font-size: 16px;
   outline: none;
 }
-
 .property-search-input:focus {
   border-color: var(--tothezip-orange-06);
 }
-
 .property-list {
   max-height: 300px;
   overflow-y: auto;
@@ -125,7 +148,6 @@ export default {
   border-radius: 12px;
   padding: 8px;
 }
-
 .property-item {
   padding: 12px 16px;
   border-radius: 8px;
@@ -135,34 +157,15 @@ export default {
   color: var(--tothezip-brown-08);
   transition: background-color 0.2s;
 }
-
 .property-item:hover {
   background-color: var(--tothezip-orange-02, #fff4ed);
   color: var(--tothezip-orange-06);
 }
-
 .no-results {
   padding: 20px;
   text-align: center;
   color: var(--tothezip-gray-04);
   font-family: "Pretendard", sans-serif;
   font-size: 14px;
-}
-
-.property-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.property-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.property-list::-webkit-scrollbar-thumb {
-  background: var(--tothezip-gray-03);
-  border-radius: 3px;
-}
-
-.property-list::-webkit-scrollbar-thumb:hover {
-  background: var(--tothezip-gray-04);
 }
 </style>

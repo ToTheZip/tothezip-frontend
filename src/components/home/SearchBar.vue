@@ -123,6 +123,9 @@
           <PropertySearchPanel
             v-if="activePanel === 'property'"
             :initialQuery="propertySearchQuery"
+            :sido="selectedSido"
+            :gugun="selectedGugun"
+            :dong="selectedDong"
             @select="handlePropertySelect"
           />
         </div>
