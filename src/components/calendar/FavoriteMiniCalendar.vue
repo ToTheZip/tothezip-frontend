@@ -1,3 +1,4 @@
+
 <template>
   <transition name="slide-down">
     <section
@@ -6,90 +7,104 @@
       ref="panelRef"
       @click.stop
     >
+      <!-- Header -->
       <div class="top">
-        <div class="title">찜한 청약 일정</div>
+        <h2 class="title">
+          <span class="icon">📅</span> 찜한 청약 일정
+        </h2>
+        
+        <button class="close-btn" @click="ui.closeFavoriteCalendar" aria-label="닫기">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
 
-        <div class="month-nav">
-          <button class="nav-btn" @click="prevMonth" aria-label="이전 달">‹</button>
-          <div class="month-label">
+      <!-- Month Navigation -->
+      <div class="month-control">
+         <button class="nav-btn" @click="prevMonth" aria-label="이전 달">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+         </button>
+         <div class="month-label">
             {{ viewYear }}.{{ String(viewMonth).padStart(2, "0") }}
-          </div>
-          <button class="nav-btn" @click="nextMonth" aria-label="다음 달">›</button>
-        </div>
-
-        <button class="close" @click="ui.closeFavoriteCalendar">✕</button>
+         </div>
+         <button class="nav-btn" @click="nextMonth" aria-label="다음 달">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+         </button>
       </div>
 
+      <!-- Week Header -->
       <div class="week">
-        <span v-for="w in weekNames" :key="w" class="w">{{ w }}</span>
+        <span v-for="(w, i) in weekNames" :key="w" class="w" :class="{ 'sun': i === 0, 'sat': i === 6 }">
+          {{ w }}
+        </span>
       </div>
 
+      <!-- Calendar Grid -->
       <div class="grid">
         <div
           v-for="(cell, idx) in cells"
           :key="idx"
           class="cell"
-          :class="{ empty: !cell.day, today: cell.isToday }"
+          :class="{ 
+            'is-empty': !cell.day, 
+            'is-today': cell.isToday 
+          }"
         >
-          <div class="day">{{ cell.day || "" }}</div>
+          <div class="day-number">{{ cell.day || "" }}</div>
 
-          <!-- ✅ dots (오렌지=접수중, 파랑=공고일) -->
-          <div v-if="cell.day && hasAnyDots(cell.key)" class="dots">
-            <!-- 오렌지 -->
+          <!-- Dots -->
+          <div v-if="cell.day && hasAnyDots(cell.key)" class="dots-wrapper">
+            <!-- Orange Dots (접수중) -->
             <template v-if="dayEventsMap[cell.key]?.orange?.length">
               <button
                 v-for="ev in visibleDots(dayEventsMap[cell.key].orange)"
                 :key="'o-' + ev.noticeId + '-' + ev._k"
                 class="dot orange"
-                :title="` ${ev.name}`"
+                :title="`[접수] ${ev.name}`"
                 @click.stop="goDetail(ev.noticeId)"
-              />
-              <span
-                v-if="dayEventsMap[cell.key].orange.length > MAX_DOTS"
-                class="more"
-                :title="dayEventsMap[cell.key].orange.map(e => `${e.name}`).join('\n')"
-              >
-                +{{ dayEventsMap[cell.key].orange.length - MAX_DOTS }}
-              </span>
+              ></button>
             </template>
 
-            <!-- 파랑 -->
+            <!-- Blue Dots (발표일) -->
             <template v-if="dayEventsMap[cell.key]?.blue?.length">
               <button
                 v-for="ev in visibleDots(dayEventsMap[cell.key].blue)"
                 :key="'b-' + ev.noticeId + '-' + ev._k"
                 class="dot blue"
-                :title="`[결과] ${ev.name}`"
+                :title="`[발표] ${ev.name}`"
                 @click.stop="goDetail(ev.noticeId)"
-              />
-              <span
-                v-if="dayEventsMap[cell.key].blue.length > MAX_DOTS"
-                class="more"
-                :title="dayEventsMap[cell.key].blue.map(e => `[결과] ${e.name}`).join('\n')"
-              >
-                +{{ dayEventsMap[cell.key].blue.length - MAX_DOTS }}
-              </span>
+              ></button>
             </template>
+            
+            <!-- More Indicator -->
+            <div 
+               v-if="(dayEventsMap[cell.key]?.orange?.length || 0) + (dayEventsMap[cell.key]?.blue?.length || 0) > MAX_DOTS"
+               class="more-indicator"
+            >+</div>
           </div>
         </div>
       </div>
 
-      <div v-if="!isLoading && totalEvents === 0" class="empty-text">
-        이번 달 찜한 청약 일정이 없어요.
+      <!-- States -->
+      <div v-if="!isLoading && totalEvents === 0" class="empty-state">
+        <p>이번 달 찜한 청약 일정이 없어요 🥲</p>
       </div>
 
-      <div v-if="isLoading" class="loading-text">불러오는 중...</div>
-        <div class="legend">
-            <div class="legend-item">
-            <span class="legend-dot orange" aria-hidden="true"></span>
-            <span class="legend-text">접수중</span>
-            </div>
-            <div class="legend-item">
-            <span class="legend-dot blue" aria-hidden="true"></span>
-            <span class="legend-text">발표일</span>
-            </div>
+      <div v-if="isLoading" class="loading-state">
+        <div class="spinner"></div>
+        <span>일정을 불러오고 있어요...</span>
       </div>
 
+      <!-- Legend -->
+      <div class="legend">
+        <div class="legend-item">
+          <span class="legend-dot orange"></span>
+          <span class="legend-text">접수일</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot blue"></span>
+          <span class="legend-text">발표일</span>
+        </div>
+      </div>
     </section>
   </transition>
 </template>
@@ -109,17 +124,15 @@ const router = useRouter();
 
 const panelRef = ref(null);
 const weekNames = ["일", "월", "화", "수", "목", "금", "토"];
-
-const MAX_DOTS = 3;
+const MAX_DOTS = 4; // 그리드 크기에 맞춰 조정
 
 const isLoading = ref(false);
-const viewDate = ref(new Date()); // 현재 보고있는 월
-const rawEvents = ref([]);        // 찜한 이벤트(정규화된 형태)
+const viewDate = ref(new Date()); 
+const rawEvents = ref([]);       
 
 const viewYear = computed(() => viewDate.value.getFullYear());
 const viewMonth = computed(() => viewDate.value.getMonth() + 1);
 
-// 날짜 -> "YYYY-MM-DD"
 function toKey(d) {
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -127,7 +140,6 @@ function toKey(d) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-// "YYYY-MM-DD" 또는 Date 유사값 -> Date
 function toDate(x) {
   if (!x) return null;
   if (x instanceof Date) return x;
@@ -137,27 +149,16 @@ function toDate(x) {
   return new Date(y, m - 1, d);
 }
 
-/**
- * ✅ 여기서 필드 분리!
- * - applyStart/applyEnd : 접수기간(오렌지)
- * - publishDate(registDate): 공고일(파랑)
- */
 function normalizeEvent(ev) {
   const noticeId = Number(ev.noticeId ?? ev.subscriptionId ?? ev.id);
   const name = ev.name ?? ev.title ?? ev.noticeTitle ?? "";
-
   const applyStart = toDate(ev.startDate ?? ev.applyStartDate ?? ev.start ?? ev.beginDate);
   const applyEnd = toDate(ev.endDate ?? ev.applyEndDate ?? ev.end ?? ev.finishDate ?? ev.startDate);
-
   const publishDate = toDate(ev.registDate ?? ev.publishDate ?? ev.announcementDate ?? ev.noticeDate);
-
-  // key 충돌 방지용(같은 notice가 여러 dot에서 key 겹치면 Vue가 싫어함)
   const _k = Math.random().toString(36).slice(2);
-
   return { noticeId, name, applyStart, applyEnd, publishDate, _k };
 }
 
-// 특정 event가 걸치는 모든 날짜(포함) 순회
 function eachDayInclusive(start, end, fn) {
   const s = new Date(start.getFullYear(), start.getMonth(), start.getDate());
   const e = new Date(end.getFullYear(), end.getMonth(), end.getDate());
@@ -166,12 +167,8 @@ function eachDayInclusive(start, end, fn) {
   }
 }
 
-/**
- * ✅ 날짜별: { orange:[], blue:[] }
- */
 const dayEventsMap = computed(() => {
   const map = {};
-
   function ensure(key) {
     if (!map[key]) map[key] = { orange: [], blue: [] };
     return map[key];
@@ -179,22 +176,17 @@ const dayEventsMap = computed(() => {
 
   for (const ev of rawEvents.value) {
     if (!Number.isFinite(ev.noticeId)) continue;
-
-    // 오렌지: 접수기간
     if (ev.applyStart && ev.applyEnd) {
       eachDayInclusive(ev.applyStart, ev.applyEnd, (d) => {
         const key = toKey(d);
         ensure(key).orange.push(ev);
       });
     }
-
-    // 파랑: 공고일(발표날)
     if (ev.publishDate) {
       const key = toKey(ev.publishDate);
       ensure(key).blue.push(ev);
     }
   }
-
   return map;
 });
 
@@ -205,16 +197,13 @@ function hasAnyDots(key) {
 
 const totalEvents = computed(() => rawEvents.value.length);
 
-// 달력 셀 만들기 (빈칸 포함 6주까지)
 const cells = computed(() => {
   const y = viewYear.value;
   const m = viewMonth.value;
-
   const first = new Date(y, m - 1, 1);
   const last = new Date(y, m, 0);
   const startWeekday = first.getDay();
   const daysInMonth = last.getDate();
-
   const todayKey = toKey(new Date());
   const result = [];
 
@@ -227,10 +216,7 @@ const cells = computed(() => {
   }
 
   while (result.length % 7 !== 0) result.push({ day: null });
-
-  // 6주 고정(42칸)
-  while (result.length < 42) result.push({ day: null });
-  if (result.length > 42) result.length = 42;
+  while (result.length < 35) result.push({ day: null }); 
 
   return result;
 });
@@ -244,34 +230,26 @@ async function loadData() {
     rawEvents.value = [];
     return;
   }
-
   isLoading.value = true;
   try {
-    // 1) 찜한 noticeId 목록
     const favRes = await fetch(`${API_BASE}/favorite?type=청약`, {
       method: "GET",
       headers: { Authorization: `Bearer ${auth.accessToken}` },
       credentials: "include",
     });
-
     if (!favRes.ok) {
       rawEvents.value = [];
       return;
     }
-
-    const favIdsRaw = await favRes.json(); // [noticeId,...]
+    const favIdsRaw = await favRes.json();
     const favSet = new Set((favIdsRaw || []).map((x) => Number(x)));
 
-    // 2) 해당 월 캘린더 이벤트 불러오기
     const res = await fetchNoticeCalendar({
       year: viewYear.value,
       month: viewMonth.value,
     });
-
     const items = res?.items || [];
     const normalized = items.map(normalizeEvent);
-
-    // 3) 찜한 것만 필터
     rawEvents.value = normalized.filter(
       (ev) => Number.isFinite(ev.noticeId) && favSet.has(ev.noticeId)
     );
@@ -296,27 +274,15 @@ function nextMonth() {
   viewDate.value = new Date(d.getFullYear(), d.getMonth() + 1, 1);
 }
 
-// 열릴 때 로드
-watch(
-  () => ui.showFavoriteCalendar,
-  (open) => {
-    if (open) loadData();
-  }
-);
+watch(() => ui.showFavoriteCalendar, (open) => {
+  if (open) loadData();
+});
+watch(() => [viewYear.value, viewMonth.value], () => {
+  if (ui.showFavoriteCalendar) loadData();
+});
 
-// 월 이동 시 로드
-watch(
-  () => [viewYear.value, viewMonth.value],
-  () => {
-    if (ui.showFavoriteCalendar) loadData();
-  }
-);
-
-// 바깥 클릭 닫기
 function onDocClick(e) {
-  // ✅ 헤더 캘린더 버튼에 data-favcal-toggle="1" 달아둔 상태여야 깜빡임 안남
   if (e.target.closest?.('[data-favcal-toggle="1"]')) return;
-
   const el = panelRef.value;
   if (!el) return;
   if (!el.contains(e.target)) ui.closeFavoriteCalendar();
@@ -327,224 +293,261 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
 </script>
 
 <style scoped>
-/* 드롭다운 위치: 헤더 아래 우측 */
+/* ----------- Layout ----------- */
 .mini-cal {
   position: fixed;
-  top: 88px;            /* header 80px + 여유 */
-  right: 28px;
-  width: 320px;
-  border: 1px solid rgba(220, 212, 207, 0.9);
-  border-radius: 18px;
-  background: #fff;
-  box-shadow: 0 12px 30px rgba(17, 17, 17, 0.12);
-  z-index: 1200;        /* header(1000)보다 위에 */
-  padding: 14px 14px 12px;
+  top: 90px;
+  right: 24px;
+  width: 340px;
+  background: var(--tothezip-cream-01);
+  border: 2px solid var(--tothezip-beige-03);
+  border-radius: 24px;
+  box-shadow: 0 8px 24px rgba(75, 29, 28, 0.12); /* 부드러운 그림자 */
+  z-index: 2000;
+  padding: 20px;
+  font-family: "Pretendard", sans-serif;
+  color: var(--tothezip-brown-09);
+  overflow: hidden;
 }
 
+/* ----------- Header Area ----------- */
 .top {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 10px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid rgba(220, 212, 207, 0.7);
+  margin-bottom: 12px;
 }
 
 .title {
-  font-family: "Pretendard", sans-serif;
+  font-size: 16px;
   font-weight: 700;
-  font-size: 14px;
-  color: #6f3d32;
-}
-
-.month-nav {
+  color: var(--tothezip-brown-08);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+}
+
+.title .icon {
+  font-size: 18px;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  color: var(--tothezip-brown-04);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  background-color: var(--tothezip-beige-02);
+  color: var(--tothezip-brown-07);
+}
+
+/* ----------- Month Navigation ----------- */
+.month-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 18px;
+  background-color: var(--tothezip-cream-02);
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--tothezip-beige-02);
 }
 
 .month-label {
-  font-family: "Pretendard", sans-serif;
-  font-weight: 700;
-  font-size: 13px;
-  color: #111;
-  min-width: 72px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--tothezip-brown-07);
+  letter-spacing: 0.5px;
+  width: 80px;
   text-align: center;
 }
 
 .nav-btn {
-  width: 26px;
-  height: 26px;
-  border-radius: 10px;
-  border: 1px solid rgba(220, 212, 207, 0.9);
-  background: #fff;
-  cursor: pointer;
-}
-
-.close {
   width: 28px;
   height: 28px;
-  border-radius: 10px;
-  border: 1px solid rgba(220, 212, 207, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: #fff;
+  border: 1px solid var(--tothezip-beige-04);
+  border-radius: 8px;
+  color: var(--tothezip-brown-06);
   cursor: pointer;
-  font-size: 13px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.03);
 }
 
+.nav-btn:hover {
+  background: var(--tothezip-orange-01);
+  border-color: var(--tothezip-orange-03);
+  transform: translateY(-1px);
+}
+
+/* ----------- Week Names ----------- */
 .week {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
-  padding: 10px 2px 8px;
-}
-.w {
   text-align: center;
-  font-size: 12px;
-  font-weight: 600;
-  color: rgba(163, 151, 143, 0.95);
+  margin-bottom: 8px;
 }
 
+.w {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tothezip-gray-04);
+  padding: 4px 0;
+}
+
+.w.sun { color: var(--tothezip-ruby-05); }
+.w.sat { color: var(--tothezip-brown-05); }
+
+/* ----------- Calendar Grid ----------- */
 .grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
-  padding: 2px;
+  gap: 6px; /* 셀 간격 */
+  margin-bottom: 12px;
 }
 
 .cell {
-  height: 40px;
-  border-radius: 12px;
-  border: 1px solid rgba(239, 231, 226, 1);
+  height: 44px; /* 높이 약간 키움 */
   background: #fff;
+  border-radius: 10px;
+  border: 1px solid var(--tothezip-beige-01);
   position: relative;
-  padding: 6px 6px 6px;
-}
-
-.cell.empty {
-  border: 1px solid transparent;
-  background: transparent;
-}
-
-.cell.today {
-  border-color: rgba(255, 156, 51, 0.55);
-  background: rgba(255, 156, 51, 0.08);
-}
-
-.day {
-  font-size: 12px;
-  font-weight: 700;
-  color: rgba(17, 17, 17, 0.85);
-}
-
-.dots {
-  position: absolute;
-  left: 6px;
-  bottom: 6px;
   display: flex;
-  align-items: center;
-  gap: 5px;
-  flex-wrap: wrap; /* 오렌지+파랑 같이 있을 때 줄바꿈 허용 */
-  max-width: calc(100% - 10px);
+  flex-direction: column;
+  padding: 4px;
+  transition: background-color 0.2s;
+}
+
+.cell.is-empty {
+  background: transparent;
+  border: none;
+  pointer-events: none;
+}
+
+.cell.is-today {
+  background: var(--tothezip-orange-01);
+  border-color: var(--tothezip-orange-03);
+}
+
+.day-number {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--tothezip-brown-08);
+  margin-bottom: 2px;
+  padding-left: 2px;
+}
+
+/* Dots Styling */
+.dots-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-content: flex-start;
+  flex: 1;
 }
 
 .dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   border: none;
   cursor: pointer;
+  transition: transform 0.2s;
 }
 
-/* ✅ 색 분리 */
-.dot.orange { background: #ff9c33; } /* 접수중 */
-.dot.blue   { background: #4d86ff; } /* 공고일 */
-
-.more {
-  font-size: 11px;
-  font-weight: 700;
-  color: rgba(111, 61, 50, 0.85);
+.dot:hover {
+  transform: scale(1.3);
 }
 
-.empty-text,
-.loading-text {
-  padding: 10px 2px 2px;
+/* Color Variables Mapping */
+.dot.orange { background-color: var(--tothezip-orange-04); }
+.dot.blue { background-color: var(--tothezip-brown-07); } /* 발표일은 짙은 갈색으로 세련되게 */
+
+.more-indicator {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--tothezip-brown-05);
+  line-height: 8px;
+  margin-left: 1px;
+}
+
+/* ----------- Empty & Loading ----------- */
+.empty-state, .loading-state {
   text-align: center;
-  font-size: 12px;
-  color: rgba(163, 151, 143, 0.95);
+  padding: 30px 0;
+  color: var(--tothezip-gray-04);
+  font-size: 13px;
 }
 
-/* 애니메이션 */
-.slide-down-enter-active,
-.slide-down-leave-active {
-  transition: all 0.22s ease;
-}
-.slide-down-enter-from {
-  opacity: 0;
-  transform: translateY(-10px);
-}
-.slide-down-enter-to {
-  opacity: 1;
-  transform: translateY(0);
-}
-.slide-down-leave-from {
-  opacity: 1;
-  transform: translateY(0);
-}
-.slide-down-leave-to {
-  opacity: 0;
-  transform: translateY(-10px);
-}
-.legend {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(220, 212, 207, 0.55);
+.loading-state {
   display: flex;
-  gap: 14px;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
+  gap: 8px;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid var(--tothezip-beige-02);
+  border-top-color: var(--tothezip-orange-04);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ----------- Legend ----------- */
+.legend {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--tothezip-beige-03);
 }
 
 .legend-item {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 6px;
 }
 
 .legend-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
 }
 
-/* dots */
-.dot.orange {
-  background: var(--tothezip-orange-04); /* 접수중 */
-}
-
-.dot.blue,
-.dot-announce {
-  background: var(--tothezip-brown-07);  /* 발표일 */
-}
-
-/* legend */
-.legend-dot.orange {
-  background: var(--tothezip-orange-04);
-}
-
-.legend-dot.blue {
-  background: var(--tothezip-brown-07);
-}
-
+.legend-dot.orange { background-color: var(--tothezip-orange-04); }
+.legend-dot.blue { background-color: var(--tothezip-brown-07); }
 
 .legend-text {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  color: rgba(111, 61, 50, 0.85);
+  color: var(--tothezip-brown-06);
 }
 
-.dot-announce {
-  background: var(--tothezip-brown-07);
-  box-shadow: 0 0 0 2px rgba(111, 70, 46, 0.18);
+/* ----------- Transition ----------- */
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.slide-down-enter-from,
+.slide-down-leave-to {
+  opacity: 0;
+  transform: translateY(-15px) scale(0.98);
 }
 </style>

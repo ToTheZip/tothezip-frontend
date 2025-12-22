@@ -2,7 +2,7 @@
   <div class="home-page">
     <!-- HERO: 배너 배경이 nav까지 포함 -->
     <div class="hero">
-      <!-- Navigation Bar (hero 안으로 이동) -->
+      <!-- Navigation Bar (hero 안으로 이동)
       <div class="navbar">
         <div class="navbar-inner">
           <div class="logo-area">
@@ -18,7 +18,7 @@
             <router-link to="/signup" class="nav-link">회원가입</router-link>
           </div>
         </div>
-      </div>
+      </div> -->
 
       <!-- Banner Area -->
       <div class="banner-area">
