@@ -210,7 +210,7 @@ export default {
     },
 
     goDetail(id) {
-      this.$router.push(`/notice/${id}`);
+      this.$router.push({ name: "NoticeDetail", params: { noticeId: id } });
     },
   },
 };

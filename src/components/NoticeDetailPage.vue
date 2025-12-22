@@ -6,19 +6,28 @@
 
       <!-- RIGHT: Detail -->
       <div class="detail-main">
-        <div class="detail-card" v-if="notice">
+        <!-- loading -->
+        <div class="detail-card" v-if="isLoading">
+          <div class="detail-header">
+            <h1 class="detail-title">불러오는 중...</h1>
+          </div>
+        </div>
+
+        <!-- loaded -->
+        <div class="detail-card" v-else-if="notice">
           <div class="detail-header">
             <div class="meta-row">
               <span class="news-type">{{ notice.type }}</span>
               <span class="meta-divider">|</span>
-              <span class="news-date">{{ notice.date }}</span>
+              <span class="news-date">{{ formatDate(notice.registDate) }}</span>
+              <span class="meta-divider">|</span>
+              <span class="news-views">조회수 {{ notice.views }}</span>
             </div>
 
             <h1 class="detail-title">{{ notice.title }}</h1>
           </div>
 
           <div class="detail-body">
-            <!-- 실제 API 붙이면 notice.content로 바꾸면 됨 -->
             <p v-for="(p, idx) in paragraphs" :key="idx" class="paragraph">
               {{ p }}
             </p>
@@ -29,10 +38,11 @@
           </div>
         </div>
 
-        <!-- not found -->
+        <!-- not found / error -->
         <div class="detail-card" v-else>
           <div class="detail-header">
             <h1 class="detail-title">해당 공지를 찾을 수 없어요.</h1>
+            <p class="error-text" v-if="errorMsg">{{ errorMsg }}</p>
           </div>
           <div class="detail-footer">
             <button class="back-btn" @click="goList">목록</button>
@@ -45,6 +55,7 @@
 
 <script>
 import HotNewsSidebar from "@/components/notices/HotNewsSidebar.vue";
+import { fetchNoticeDetail, fetchNoticeMain } from "@/api/notice";
 
 export default {
   name: "NoticeDetailPage",
@@ -54,97 +65,92 @@ export default {
   },
   data() {
     return {
-      // 실제로는 API에서 가져오면 됨 (지금은 NoticesPage랑 동일 더미)
-      hotNews: [
-        {
-          id: 1,
-          type: "주요 뉴스",
-          date: "2025.12.10",
-          title: "‘침수 피해’ 대림1구역…",
-        },
-        {
-          id: 2,
-          type: "주요 뉴스",
-          date: "2025.12.10",
-          title: "서울 원룸 월세 저렴한 1위는…",
-        },
-        {
-          id: 3,
-          type: "주요 뉴스",
-          date: "2025.12.10",
-          title: "잠실 르엘에 장기전세로…",
-        },
-        {
-          id: 4,
-          type: "주요 뉴스",
-          date: "2025.12.10",
-          title: "“엄마, 이제 1000에 72가…”",
-        },
-        {
-          id: 5,
-          type: "주요 뉴스",
-          date: "2025.12.10",
-          title: "서울시, 3.4조 투입해…",
-        },
-      ],
-      allNews: [
-        {
-          id: 1,
-          type: "주요 뉴스",
-          category: "news",
-          date: "2025.12.10",
-          title:
-            "'침수 피해' 대림1구역, 신통 기획 재개발로 주거 환경 개선·재난 예방 속도",
-        },
-        {
-          id: 2,
-          type: "주요 뉴스",
-          category: "news",
-          date: "2025.12.10",
-          title: "서울 원룸 월세 저렴한 1위는 의외로 '이 동네'... 평균 41만원",
-        },
-        {
-          id: 3,
-          type: "주요 뉴스",
-          category: "news",
-          date: "2025.12.10",
-          title:
-            "잠실 르엘에 장기전세로 살아볼까?... SH '시프트' 1000여 가구 모집",
-        },
-        // ... 실제 데이터로 교체
-      ],
+      isLoading: false,
+      errorMsg: "",
+      notice: null,
+      hotNews: [],
     };
   },
   computed: {
-    idNum() {
-      return Number(this.noticeId);
-    },
-    notice() {
-      return this.allNews.find((n) => n.id === this.idNum) || null;
+    noticeIdNum() {
+      const n = Number(this.noticeId);
+      return Number.isFinite(n) ? n : null;
     },
     paragraphs() {
-      /* 동일 */
+      const raw = this.notice?.content ?? "";
+      // 줄바꿈 기반 문단
+      return String(raw)
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+    },
+  },
+  async mounted() {
+    await this.loadAll();
+  },
+  watch: {
+    // 같은 컴포넌트 재사용되는 경우(라우트 param만 변할 때)
+    noticeId: {
+      immediate: false,
+      async handler() {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        await this.loadDetail();
+      },
     },
   },
   methods: {
+    async loadAll() {
+      await Promise.all([this.loadHot(), this.loadDetail()]);
+    },
+    async loadHot() {
+      try {
+        const data = await fetchNoticeMain({ typeFilter: "ALL", sort: "hot" });
+        const pinned = data?.pinned || [];
+        const notices = data?.notices || [];
+        const merged = [...pinned, ...notices].slice(0, 5);
+
+        this.hotNews = merged.map((x) => ({
+          id: x.noticeId,
+          type: x.type,
+          date: this.formatDate(x.registDate),
+          title: x.title,
+        }));
+      } catch (e) {
+        console.warn("HOT 로딩 실패:", e);
+        this.hotNews = [];
+      }
+    },
+    async loadDetail() {
+      if (!this.noticeIdNum) {
+        this.notice = null;
+        this.errorMsg = "잘못된 noticeId 입니다.";
+        return;
+      }
+
+      this.isLoading = true;
+      this.errorMsg = "";
+      try {
+        const data = await fetchNoticeDetail(this.noticeIdNum);
+        // NoticeDto.Detail: {noticeId,type,title,content,views,registDate,writer}
+        this.notice = data || null;
+      } catch (e) {
+        console.error("상세 로딩 실패:", e);
+        this.notice = null;
+        this.errorMsg = String(e?.message || "상세 로딩 실패");
+      } finally {
+        this.isLoading = false;
+      }
+    },
     goList() {
+      // 목록으로 돌아가기 (query 유지하고 싶으면 여기서 query 붙이면 됨)
       this.$router.push({ name: "NoticeList" });
     },
-  },
-  watch: {
-    noticeId() {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    },
-  },
-  methods: {
-    goList() {
-      this.$router.push({ name: "NoticeList" });
-    },
-  },
-  watch: {
-    // 상세 이동 시 같은 컴포넌트 재사용되면 스크롤 상단으로
-    "$route.params.noticeId"() {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+    formatDate(dateLike) {
+      if (!dateLike) return "";
+      const s = String(dateLike);
+      // "2025-12-10" -> "2025.12.10"
+      if (s.includes("-")) return s.replaceAll("-", ".");
+      return s;
     },
   },
 };
@@ -156,7 +162,6 @@ export default {
   background: #fff;
 }
 
-/* NoticesPage랑 동일한 wrapper 톤 유지 */
 .content-wrapper {
   max-width: 1280px;
   margin: 0 auto;
@@ -166,7 +171,6 @@ export default {
   align-items: flex-start;
 }
 
-/* 오른쪽 상세 영역 */
 .detail-main {
   flex: 1;
   min-width: 0;
@@ -193,6 +197,7 @@ export default {
   align-items: center;
   gap: 10px;
   margin-bottom: 12px;
+  flex-wrap: wrap;
 }
 
 .news-type {
@@ -201,15 +206,14 @@ export default {
   font-size: 13px;
   color: #111;
 }
-
 .meta-divider {
   font-family: "Pretendard", sans-serif;
   font-weight: 400;
   font-size: 13px;
   color: rgba(163, 151, 143, 0.6);
 }
-
-.news-date {
+.news-date,
+.news-views {
   font-family: "Pretendard", sans-serif;
   font-weight: 500;
   font-size: 13px;
@@ -234,6 +238,14 @@ export default {
 
 .paragraph {
   margin: 0 0 14px;
+  white-space: pre-wrap;
+}
+
+.error-text {
+  margin-top: 10px;
+  font-family: "Pretendard", sans-serif;
+  font-size: 13px;
+  color: rgba(220, 53, 69, 0.9);
 }
 
 .detail-footer {
@@ -259,7 +271,6 @@ export default {
   opacity: 0.9;
 }
 
-/* 반응형 */
 @media (max-width: 1100px) {
   .content-wrapper {
     padding: 34px 24px;

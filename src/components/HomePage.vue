@@ -37,7 +37,8 @@
     <div class="main-content">
       <div class="container">
         <!-- Recommended Properties Section -->
-        <PropertiesSection
+        <PropertiesSection 
+          :isLoggedIn="isLoggedIn"
           :region-name="regionName"
           :tags="propertyTags"
           :properties="displayProperties"
@@ -65,6 +66,7 @@ import NewsSection from "./home/NewsSection.vue";
 import Footer from "@/components/common/Footer.vue";
 
 import { fetchHomeRecommendations, fetchHomeNotices } from "@/api/home";
+import { useAuthStore } from "@/stores/auth";
 
 export default {
   name: "HomePage",
@@ -74,19 +76,27 @@ export default {
     NewsSection,
     Footer,
   },
+  computed: {
+    auth() {
+      return useAuthStore();
+    },
+    isLoggedIn() {
+      return !!this.auth.accessToken;
+    },
+  },
   data() {
     return {
-      // ✅ 추천 섹션
+      // 추천 섹션
       regionName: "",
       propertyTags: [],
       displayProperties: [],
 
-      // ✅ 뉴스 섹션
+      // 뉴스 섹션
       newsCategories: ["전체", "청약", "뉴스"],
       displayNews: [],
       activeNewsCategory: "전체",
 
-      // // 로딩/에러(선택)
+      // // 로딩/에러
       // isLoadingReco: false,
       // isLoadingNews: false,
     };
@@ -98,58 +108,64 @@ export default {
   },
 
   methods: {
-    // handleSearch(searchData) {
-    //   console.log("Search:", searchData);
-    //   // Implement search logic
-    // },
-    // filterProperties(tag) {
-    //   console.log("Filter properties by:", tag);
-    //   // Implement filter logic
-    // },
-    // filterNews(category) {
-    //   console.log("Filter news by:", category);
-    //   // Implement filter logic
-    // },
-    // goToPropertyDetail(id) {
-    //   console.log("Go to property:", id);
-    //   // this.$router.push(`/property/${id}`)
-    // },
-    // goToNewsDetail(id) {
-    //   console.log("Go to news:", id);
-    //   // this.$router.push(`/news/${id}`)
-    // },
-    // goToNewsList() {
-    //   console.log("Go to news list");
-    //   // this.$router.push('/news')
-    // },
-    // scrollToTop() {
-    //   window.scrollTo({ top: 0, behavior: "smooth" });
-    // },
     handleSearch(searchData) {
       console.log("Search:", searchData);
       // 검색 로직은 별도 구현
     },
 
     // -------------------------
-    // ✅ 1) 추천 매물 로드
+    // 1) 추천 매물 로드
     // -------------------------
+    // async loadRecommendations() {
+    //   try {
+    //     const data = await fetchHomeRecommendations();
+    //     console.log("HOME RECO DATA:", data);
+
+    //     this.regionName = data.regionName || "";
+    //     this.propertyTags = data.facilityTags || [];
+    //     this.displayProperties = (data.properties || []).map(p => ({
+    //       id: p.aptSeq,
+    //       name: p.aptName,
+    //       address: p.roadAddress,
+    //       rating: p.propertyRating,
+    //       tags: [],
+    //       image: p.imageUrl || "",
+    //     }));
+    //   } catch (e) {
+    //     console.error("추천 매물 로딩 실패", e);
+    //     this.displayProperties = [];
+    //   }
+    // },
     async loadRecommendations() {
       try {
         const data = await fetchHomeRecommendations();
         console.log("HOME RECO DATA:", data);
 
-        this.regionName = data.regionName || "";
+        const raw = (data.regionName || "").trim();
+
+        let region = raw
+          .replace(/관심\s*등록한/g, "")
+          .replace(/추천\s*매물을\s*준비했어요/g, "")
+          .trim();
+
+        if (region.includes(",")) region = region.split(",")[0].trim();
+
+        this.regionName = region;
+
         this.propertyTags = data.facilityTags || [];
-        this.displayProperties = (data.properties || []).map(p => ({
+
+        this.displayProperties = (data.properties || []).map((p) => ({
           id: p.aptSeq,
           name: p.aptName,
           address: p.roadAddress,
           rating: p.propertyRating,
-          tags: [],
-          image: p.imageUrl || "",
+          tags: p.tags || [],          // ✅ 서버가 tags 내려주면 바로 반영
+          image: p.imageUrl || "",     // PropertyCard가 image를 보니까 유지
         }));
       } catch (e) {
         console.error("추천 매물 로딩 실패", e);
+        this.regionName = "";
+        this.propertyTags = [];
         this.displayProperties = [];
       }
     },
@@ -167,7 +183,7 @@ export default {
     },
 
     // -------------------------
-    // ✅ 2) 공지(부동산 소식) 로드
+    // 2) 공지(부동산 소식) 로드
     // -------------------------
     async loadHomeNews(category) {
       this.isLoadingNews = true;
@@ -190,7 +206,7 @@ export default {
           if (seen.has(id)) continue;
           seen.add(id);
           merged.push(x);
-          if (merged.length >= 4) break; // ✅ 너 요구: 4개만
+          if (merged.length >= 4) break; //
         }
 
         // NewsCard가 기대하는 형태로 변환
@@ -213,15 +229,23 @@ export default {
       this.loadHomeNews(category);
     },
 
+    // goToNewsDetail(id) {
+    //   // 백엔드가 /notice/{id} 제공함.
+    //   // 라우터를 /notice/:noticeId 로 만들어두면 여기서 이동 가능
+    //   this.$router.push(`/notice/${id}`);
+    // },
+
+    // goToNewsList() {
+    //   // 공지사항 페이지
+    //   this.$router.push("/notices");
+    // },
+    
     goToNewsDetail(id) {
-      // 백엔드가 /notice/{id} 제공함.
-      // 라우터를 /notice/:noticeId 로 만들어두면 여기서 이동 가능
-      this.$router.push(`/notice/${id}`);
+      this.$router.push({ name: "NoticeDetail", params: { noticeId: id } });
     },
 
     goToNewsList() {
-      // 공지사항 페이지
-      this.$router.push("/notices");
+      this.$router.push({ name: "NoticeList", query: { typeFilter: "ALL", sort: "latest", page: 1 } });
     },
 
     formatDate(dateLike) {
