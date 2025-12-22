@@ -5,10 +5,6 @@
         <button class="back-button" @click="$emit('close')">
           <ChevronLeft />
         </button>
-
-        <button class="like-button" @click="$emit('toggle-like')">
-          <HeartOutline :filled="property.isLiked" class="heart-icon" />
-        </button>
       </div>
 
       <div class="images-area">
@@ -93,9 +89,22 @@
             >
               <div class="listing-top">
                 <span class="listing-type">{{ item.type }}</span>
-                <span class="listing-price">{{
-                  formatListingPrice(item)
-                }}</span>
+                <div class="listing-right">
+                  <span class="listing-price">{{
+                    formatListingPrice(item)
+                  }}</span>
+                  <button
+                    class="listing-like-button"
+                    type="button"
+                    @click.stop="toggleListingLike(item)"
+                    aria-label="찜"
+                  >
+                    <HeartOutline
+                      :filled="!!item.isLiked"
+                      class="listing-heart-icon"
+                    />
+                  </button>
+                </div>
               </div>
 
               <div class="listing-bottom">
@@ -136,7 +145,7 @@ export default {
   props: {
     property: { type: Object, required: true },
   },
-  emits: ["close", "toggle-like"],
+  emits: ["close"],
   computed: {
     allImages() {
       // DTO의 images가 있으면 그걸 우선
@@ -183,6 +192,9 @@ export default {
     },
   },
   methods: {
+    toggleListingLike(item) {
+      item.isLiked = !item.isLiked;
+    },
     async fetchListings() {
       const aptSeq = this.property?.aptSeq;
       if (!aptSeq) return;
@@ -193,7 +205,9 @@ export default {
 
       try {
         const { data } = await axios.get(`/property/${aptSeq}/listings`);
-        this.listings = Array.isArray(data) ? data : [];
+        this.listings = Array.isArray(data)
+          ? data.map((x) => ({ ...x, isLiked: false }))
+          : [];
       } catch (e) {
         console.error(e);
         this.listingsError = "매물 정보를 불러오지 못했어요.";
@@ -490,5 +504,27 @@ export default {
 
 .dot {
   opacity: 0.6;
+}
+
+.listing-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.listing-like-button {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+}
+
+.listing-heart-icon {
+  color: var(--tothezip-brown-07);
 }
 </style>
