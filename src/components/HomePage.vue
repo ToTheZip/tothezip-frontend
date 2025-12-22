@@ -44,6 +44,7 @@
           :properties="displayProperties"
           @tag-click="filterProperties"
           @property-click="goToPropertyDetail"
+          @property-go-map="goToMapPage"
         />
 
         <!-- News Section -->
@@ -113,6 +114,14 @@ export default {
       // 검색 로직은 별도 구현
     },
 
+    goToMapPage(aptSeq) {
+      this.$router.push({
+        name: "SearchMap", 
+        query: {
+          aptSeq,  
+        },
+      });
+    },
     // -------------------------
     // 1) 추천 매물 로드
     // -------------------------

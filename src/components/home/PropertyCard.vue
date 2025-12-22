@@ -34,8 +34,9 @@
         </div>
 
         <!-- ✅ Hover 오버레이 + 찜 버튼 -->
-        <div class="hover-overlay">
-          <button
+        <div class="hover-overlay" @click="goToMap">
+          <span class="go-map-text">매물 보러가기 →</span>
+          <!-- <button
             class="like-button"
             :class="{ bounce: isBouncing }"
             @click.stop="toggleLike"
@@ -43,7 +44,7 @@
           >
             <HeartOutline v-if="!liked" class="heart-icon outline" />
             <HeartFill v-else class="heart-icon fill" />
-          </button>
+          </button> -->
         </div>
       </div>
     </div>
@@ -86,13 +87,13 @@
 </template>
 
 <script>
-import HeartOutline from "@/components/icons/HeartOutline.vue";
-import HeartFill from "@/components/icons/HeartFill.vue";
+// import HeartOutline from "@/components/icons/HeartOutline.vue";
+// import HeartFill from "@/components/icons/HeartFill.vue";
 import StarIcon from "@/components/icons/Star.vue";
 
 export default {
   name: "PropertyCard",
-  components: { HeartOutline, HeartFill, StarIcon },
+  components: { StarIcon },
   props: {
     property: {
       type: Object,
@@ -102,11 +103,10 @@ export default {
   data() {
     return {
       // ✅ 임시 상태(나중에 서버/스토어로 연결하면 됨)
-      liked: false,
-      isBouncing: false,
-      fallbackImg: new URL("@/assets/images/dozip_logo.png", import.meta.url)
-        .href,
-      imgSrc: "",
+      // liked: false,
+      // isBouncing: false,
+      fallbackImg: new URL("@/assets/images/dozip_logo.png", import.meta.url).href,
+      imgSrc: ""
     };
   },
   mounted() {
@@ -129,20 +129,24 @@ export default {
       // 이미지 로딩 실패 시 img 숨기고 placeholder 유지
       e.target.style.display = "none";
     },
-    toggleLike() {
-      this.liked = !this.liked;
-
-      this.isBouncing = false; // 연타 시에도 재시작되게
-      this.$nextTick(() => {
-        this.isBouncing = true;
-        setTimeout(() => {
-          this.isBouncing = false;
-        }, 260); // 애니메이션 시간과 맞추기
-      });
-
-      // 필요하면 부모로 이벤트 올리기
-      // this.$emit("toggle-like", { id: this.property.id, liked: this.liked });
+    goToMap() {
+      // apt_seq = property.id
+      this.$emit("go-map", this.property.id);
     },
+    // toggleLike() {
+    //   this.liked = !this.liked;
+
+    //   this.isBouncing = false; // 연타 시에도 재시작되게
+    //   this.$nextTick(() => {
+    //     this.isBouncing = true;
+    //     setTimeout(() => {
+    //       this.isBouncing = false;
+    //     }, 260); // 애니메이션 시간과 맞추기
+    //   });
+
+    //   // 필요하면 부모로 이벤트 올리기
+    //   // this.$emit("toggle-like", { id: this.property.id, liked: this.liked });
+    // },
   },
 };
 </script>
@@ -272,7 +276,7 @@ export default {
 }
 
 /* 찜 버튼 */
-.like-button {
+/* .like-button {
   width: 50px;
   height: 50px;
   border: none;
@@ -284,7 +288,7 @@ export default {
 
   transform: scale(0.98);
   transition: transform 0.15s ease, opacity 0.15s ease;
-}
+} */
 
 .property-image-box:hover .like-button {
   transform: scale(1);
@@ -294,10 +298,10 @@ export default {
   transform: scale(0.94);
 }
 
-.heart-icon {
+/* .heart-icon {
   width: 70px;
   height: 70px;
-}
+} */
 
 /* 정보 영역 */
 .property-info {
@@ -396,7 +400,27 @@ export default {
   transform-origin: center;
 }
 
-@keyframes heart-bounce {
+.go-map-text {
+  font-family: "Pretendard Variable", sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: white;
+
+  padding: 10px 18px;
+  border-radius: 22px;
+
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(4px);
+
+  transition: transform 0.15s ease;
+}
+
+.property-image-box:hover .go-map-text {
+  transform: scale(1.04);
+}
+
+
+/* @keyframes heart-bounce {
   0% {
     transform: scale(1);
   }
@@ -408,6 +432,6 @@ export default {
   }
   100% {
     transform: scale(1);
-  }
-}
+  } 
+} */
 </style>
