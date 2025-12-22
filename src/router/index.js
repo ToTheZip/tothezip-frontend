@@ -5,6 +5,8 @@ import SignupPage from "@/components/SignupPage.vue";
 import LoginPage from "@/components/LoginPage.vue";
 import NoticeListPage from "@/components/NoticeListPage.vue";
 import NoticeDetailPage from "@/components/NoticeDetailPage.vue";
+import PreferecnSurveyPage from "@/components/PreferenceSurveyPage.vue";
+
 import { useAuthStore } from "@/stores/auth";
 
 const router = createRouter({
@@ -38,6 +40,11 @@ const router = createRouter({
       component: NoticeDetailPage,
       props: true,
       meta: { requiresAuth: true },
+    },
+    {
+      path: "/preference",
+      name: "PreferenceSurvey",
+      component: PreferecnSurveyPage,
     },
   ],
 });

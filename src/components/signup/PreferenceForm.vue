@@ -1,0 +1,562 @@
+<template>
+  <div class="pref-card">
+    <div class="pref-header">
+      <button class="back-btn" type="button" @click="$emit('back')" aria-label="이전">
+        ←
+      </button>
+      <h2>관심사항 설정</h2>
+    </div>
+
+    <div class="pref-body">
+      <div class="field">
+        <!-- 관심 지역 -->
+        <div class="block">
+          <label class="field-label">관심 지역</label>
+
+          <div class="row-2">
+            <div class="select-wrap half">
+              <select class="select" v-model="local.sido" @change="onChangeSido">
+                <option value="">{{ loadingSido ? "불러오는 중..." : "시 선택" }}</option>
+                <option v-for="s in sidos" :key="s" :value="s">
+                  {{ s }}
+                </option>
+              </select>
+            </div>
+
+            <div class="select-wrap half">
+              <select
+                class="select"
+                v-model="local.gugun"
+                :disabled="!local.sido || loadingGugun || guguns.length === 0"
+              >
+                <option value="">
+                  {{
+                    !local.sido
+                      ? "시를 먼저 선택"
+                      : loadingGugun
+                        ? "불러오는 중..."
+                        : "구 선택"
+                  }}
+                </option>
+                <option v-for="g in guguns" :key="g" :value="g">
+                  {{ g }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <p v-if="errRegion" class="error-text">{{ errRegion }}</p>
+        </div>
+
+        <!-- 관심 키워드 -->
+        <div class="block">
+          <label class="field-label">관심 키워드</label>
+
+          <div v-if="loadingTags" class="hint">태그 불러오는 중...</div>
+          <p v-if="errTags" class="error-text">{{ errTags }}</p>
+
+          <div class="tag-pills" v-if="!loadingTags && !errTags">
+            <button
+              v-for="t in tagOptions"
+              :key="t._key"
+              type="button"
+              :class="['tag-pill', { active: local.tagIds.includes(t.tagId) }]"
+              @click="toggleTag(t.tagId)"
+            >
+              {{ t.name }}
+            </button>
+          </div>
+        </div>
+
+        <!-- 희망 평수 -->
+        <div class="block">
+          <div class="field-label">희망 평수</div>
+
+          <div class="row-2">
+            <FormInput
+              label=""
+              v-model="local.minArea"
+              type="number"
+              custom-class="half no-label"
+              input-class="half-input"
+              placeholder="최소"
+            />
+            <FormInput
+              label=""
+              v-model="local.maxArea"
+              type="number"
+              custom-class="half no-label"
+              input-class="half-input"
+              placeholder="최대"
+            />
+          </div>
+
+          <div class="hint">(평수 입력, 1평 ≈ 3.3㎡)</div>
+        </div>
+
+        <!-- 완료 버튼 -->
+        <div class="actions">
+          <button class="complete-btn" type="button" @click="$emit('complete')">
+            회원가입 완료
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import FormInput from "./FormInput.vue";
+const API_BASE = import.meta.env.VITE_API_BASE;
+
+export default {
+  name: "PreferenceForm",
+  components: { FormInput },
+  props: { modelValue: { type: Object, required: true } },
+
+  data() {
+    return {
+      sidos: [],
+      guguns: [],
+      tagOptions: [],
+
+      loadingSido: false,
+      loadingGugun: false,
+      loadingTags: false,
+      errRegion: "",
+      errTags: "",
+
+      // ✅ 처음 한 번만 prop 값을 local로 복사
+      local: {
+        sido: this.modelValue.sido ?? "",
+        gugun: this.modelValue.gugun ?? "",
+        tagIds: Array.isArray(this.modelValue.tagIds) ? [...this.modelValue.tagIds] : [],
+        minArea: this.modelValue.minArea ?? "",
+        maxArea: this.modelValue.maxArea ?? "",
+      },
+    };
+  },
+
+  watch: {
+    // ✅ local -> 부모로만 올려보냄 (modelValue -> local watch 제거!)
+    local: {
+      deep: true,
+      handler(v) {
+        this.$emit("update:modelValue", {
+          sido: v.sido,
+          gugun: v.gugun,
+          tagIds: v.tagIds,
+          minArea: v.minArea === "" ? null : Number(v.minArea),
+          maxArea: v.maxArea === "" ? null : Number(v.maxArea),
+        });
+      },
+    },
+  },
+
+  async mounted() {
+    await Promise.all([this.loadSidos(), this.loadTags()]);
+    if (this.local.sido) await this.loadGuguns(this.local.sido);
+  },
+
+  methods: {
+    // 응답이 ["서울특별시"...] 또는 [{sidoName:"서울특별시"}...] 여도 처리
+    normalizeToStringList(list, keys = []) {
+      if (!Array.isArray(list)) return [];
+      return list
+        .map((x) => {
+          if (typeof x === "string") return x;
+          for (const k of keys) {
+            if (x && x[k]) return x[k];
+          }
+          return "";
+        })
+        .filter(Boolean);
+    },
+
+    async loadSidos() {
+      this.loadingSido = true;
+      this.errRegion = "";
+      try {
+        const r = await fetch(`${API_BASE}/property/regions/sido`, {
+          method: "GET",
+          credentials: "include",
+        });
+        if (!r.ok) {
+          const text = await r.text().catch(() => "");
+          console.error("[sido] status=", r.status, text);
+          this.errRegion =
+            r.status === 403
+              ? "지역 목록 조회가 403입니다. (백엔드에서 해당 API를 permitAll로 열어줘야 해요)"
+              : "지역 목록을 불러오지 못했어요.";
+          return;
+        }
+        const data = await r.json();
+        this.sidos = this.normalizeToStringList(data, ["sidoName", "sido"]);
+      } catch (e) {
+        console.error("[sido] error=", e);
+        this.errRegion = "지역 목록 조회 중 네트워크 오류가 발생했어요.";
+      } finally {
+        this.loadingSido = false;
+      }
+    },
+
+    async loadGuguns(sido) {
+      this.loadingGugun = true;
+      this.errRegion = "";
+      try {
+        const r = await fetch(
+          `${API_BASE}/property/regions/gugun?sido=${encodeURIComponent(sido)}`,
+          { method: "GET", credentials: "include" }
+        );
+        if (!r.ok) {
+          const text = await r.text().catch(() => "");
+          console.error("[gugun] status=", r.status, text);
+          this.errRegion =
+            r.status === 403
+              ? "구 목록 조회가 403입니다. (백엔드 permitAll 필요)"
+              : "구 목록을 불러오지 못했어요.";
+          return;
+        }
+        const data = await r.json();
+        this.guguns = this.normalizeToStringList(data, ["gugunName", "gugun"]);
+      } catch (e) {
+        console.error("[gugun] error=", e);
+        this.errRegion = "구 목록 조회 중 네트워크 오류가 발생했어요.";
+      } finally {
+        this.loadingGugun = false;
+      }
+    },
+
+    async loadTags() {
+        this.loadingTags = true;
+        this.errTags = "";
+
+        // ✅ (fallback) 태그 이름 -> DB tag_id 매핑
+        const NAME_TO_ID = {
+            "역세권": 1,
+            "병세권": 2,
+            "학세권": 3,
+            "문세권": 4,
+        };
+
+        try {
+            const r = await fetch(
+            `${API_BASE}/property/tags?type=${encodeURIComponent("주변시설")}`,
+            { method: "GET", credentials: "include" }
+            );
+
+            if (!r.ok) {
+            const text = await r.text().catch(() => "");
+            console.error("[tags] status=", r.status, text);
+            this.errTags =
+                r.status === 403
+                ? "태그 조회가 403입니다. (백엔드 permitAll 필요)"
+                : "태그 목록을 불러오지 못했어요.";
+            return;
+            }
+
+            const data = await r.json();
+            const rawList = Array.isArray(data) ? data : [];
+
+            // ✅ 1) 응답의 가능한 id 필드들을 모두 시도
+            const mapped = rawList.map((x, idx) => {
+            const name = (x?.name ?? x?.tagName ?? "").trim();
+
+            // tagId / tag_id / id 등 어떤 형태로 오든 최대한 파싱
+            const rawId = x?.tagId ?? x?.tag_id ?? x?.id ?? x?.tagID;
+            let id = Number.parseInt(rawId, 10);
+
+            // ✅ 2) id가 NaN/0/음수면 "이름으로 복구"
+            if (!Number.isInteger(id) || id <= 0) {
+                id = NAME_TO_ID[name] ?? null;
+            }
+
+            return {
+                tagId: id,
+                name,
+                _key: `${id ?? "n"}-${idx}`,
+            };
+            })
+            .filter((x) => Number.isInteger(x.tagId) && x.tagId > 0 && x.name);
+
+            // ✅ 3) 혹시라도 tagId 중복이 있으면(=버그 재발) 중복 제거
+            const seen = new Set();
+            this.tagOptions = mapped.filter((t) => {
+            if (seen.has(t.tagId)) return false;
+            seen.add(t.tagId);
+            return true;
+            });
+
+            console.log("[tagOptions]", this.tagOptions); // 여기서 tagId가 1,2,3,4로 나와야 정상
+        } catch (e) {
+            console.error("[tags] error=", e);
+            this.errTags = "태그 조회 중 네트워크 오류가 발생했어요.";
+        } finally {
+            this.loadingTags = false;
+        }
+        },
+
+    async onChangeSido() {
+      this.local.gugun = "";
+      this.guguns = [];
+      if (!this.local.sido) return;
+      await this.loadGuguns(this.local.sido);
+    },
+
+    toggleTag(tagId) {
+        tagId = Number(tagId);
+        if (!Number.isInteger(tagId) || tagId <= 0) return;
+
+        const i = this.local.tagIds.indexOf(tagId);
+        if (i >= 0) this.local.tagIds.splice(i, 1);
+        else this.local.tagIds.push(tagId);
+        },
+  },
+};
+</script>
+
+<style scoped>
+/* 카드 */
+.pref-card {
+  width: 100%;
+  background: var(--tothezip-white);
+  border: 1px solid var(--tothezip-brown-01);
+  border-radius: 20px;
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+/* 헤더 */
+.pref-header {
+  padding: 30px 56px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-height: 56px;
+}
+
+.pref-header h2 {
+  margin: 0;
+  font-family: "Pretendard", sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--tothezip-beige-09);
+  letter-spacing: -0.08px;
+}
+
+/* 뒤로가기(위쪽) */
+.back-btn {
+  position: absolute;
+  left: 18px;
+  top: 22px;
+
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--tothezip-beige-03);
+  background: var(--tothezip-white);
+
+  color: var(--tothezip-beige-08);
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.back-btn:hover {
+  background: var(--tothezip-beige-01);
+}
+
+/* 바디 */
+.pref-body {
+  padding: 16px 56px 30px;
+  padding-top: calc(var(--logo-size) * 0.18);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+/* ✅ 좌우 정렬 기준 컨테이너 */
+.field {
+  --field-width: 260px;
+  width: var(--field-width);
+  margin: 0 auto;
+}
+
+/* 섹션 간 공백 */
+.block {
+  margin-top: 14px;
+}
+.block:first-child {
+  margin-top: 0;
+}
+
+/* ✅ FormInput 라벨과 동일한 느낌(핵심: padding 2px 8px) */
+.field-label {
+  display: block;
+  margin: 0 0 6px;
+  padding: 2px 8px;
+
+  font-family: "Pretendard", sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--tothezip-beige-04);
+  letter-spacing: -0.048px;
+}
+
+/* 2열 */
+.row-2 {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  align-items: flex-start;
+}
+
+/* ✅ select도 FormInput input-field와 동일 룩 */
+.select-wrap {
+  width: 100%;
+}
+.select-wrap.half {
+  width: calc((var(--field-width) - 10px) / 2);
+}
+
+.select {
+  width: 100%;
+  height: 38px; /* FormInput input-field와 동일 */
+  background: var(--tothezip-cream-02);
+  border: 1px solid var(--tothezip-beige-02);
+  border-radius: 10px;
+  padding: 0 12px;
+  box-sizing: border-box;
+
+  font-family: "Pretendard", sans-serif;
+  font-size: 14px;
+  color: var(--tothezip-beige-09);
+  outline: none;
+}
+.select:focus {
+  border-color: var(--tothezip-beige-04);
+}
+.select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* FormInput도 field width에 맞추기 */
+.pref-body :deep(.input-group) {
+  width: 100%;
+  margin: 0;
+}
+
+/* label 없는 FormInput은 위 여백 최소화 */
+.pref-body :deep(.input-group.no-label .input-label) {
+  display: none;
+}
+
+/* half FormInput */
+.pref-body :deep(.input-group.half) {
+  width: calc((var(--field-width) - 10px) / 2);
+  margin: 0;
+}
+
+/* 태그 4개 한 줄 */
+.tag-pills {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.tag-pill {
+  flex: 1;
+  height: 30px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--tothezip-beige-03);
+  background: var(--tothezip-white);
+
+  font-family: "Pretendard", sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--tothezip-beige-08);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tag-pill.active {
+  background: var(--tothezip-beige-07);
+  border-color: var(--tothezip-beige-08);
+  color: var(--tothezip-beige-01);
+}
+
+.hint {
+  margin: 6px 0 0;
+  padding: 0 8px; /* FormInput helper-text처럼 */
+  font-family: "Pretendard", sans-serif;
+  font-size: 11px;
+  line-height: 1.2;
+  color: rgba(163, 151, 143, 0.9);
+}
+
+/* 완료 버튼 */
+.actions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: center;
+}
+
+.complete-btn {
+  width: 100%;
+  height: 44px;
+  border-radius: 999px;
+  border: none;
+
+  background: var(--tothezip-beige-07);
+  color: var(--tothezip-beige-01);
+
+  font-family: "Pretendard", sans-serif;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+}
+.complete-btn:hover {
+  background: var(--tothezip-beige-08);
+}
+
+.error-text {
+  margin: 8px 0 0;
+  padding: 0 8px;
+  font-family: "Pretendard", sans-serif;
+  font-size: 11px;
+  color: #d14b4b;
+}
+
+.select option {
+  color: var(--tothezip-beige-09);
+  background: var(--tothezip-white);
+}
+
+/* placeholder 느낌 */
+.select option[value=""] {
+  color: var(--tothezip-beige-04);
+}
+
+@media (max-width: 500px) {
+  .pref-body {
+    padding-left: 40px;
+    padding-right: 40px;
+  }
+  .field {
+    --field-width: min(260px, 100%);
+  }
+  .row-2 {
+    flex-direction: row;
+  }
+}
+</style>
