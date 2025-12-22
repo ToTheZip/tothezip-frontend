@@ -80,11 +80,12 @@
 
       <div class="actions">
         <button
-          class="signup-button"
+          class="next-arrow"
           @click="handleSignup"
           :disabled="signupDisabled"
+          aria-label="다음"
         >
-          회원가입
+          →
         </button>
       </div>
     </div>
@@ -373,6 +374,35 @@ export default {
   color: var(--tothezip-beige-05);
   cursor: default;
   opacity: 0.5; */
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.next-arrow {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  border: none;
+
+  background: var(--tothezip-beige-07);
+  color: var(--tothezip-beige-01);
+
+  font-family: "Pretendard", sans-serif;
+  font-weight: 800;
+  font-size: 22px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+}
+
+.next-arrow:not(:disabled):hover {
+  background: var(--tothezip-beige-08);
+}
+
+.next-arrow:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }

@@ -60,9 +60,9 @@
 </template>
 
 <script>
-import SearchBar from "./home/SearchBar.vue";
-import PropertiesSection from "./home/PropertiesSection.vue";
-import NewsSection from "./home/NewsSection.vue";
+import SearchBar from "@/components/home/SearchBar.vue";
+import PropertiesSection from "@/components/home/PropertiesSection.vue";
+import NewsSection from "@/components/home/NewsSection.vue";
 import Footer from "@/components/common/Footer.vue";
 
 import { fetchHomeRecommendations, fetchHomeNotices } from "@/api/home";
