@@ -61,7 +61,7 @@
               </svg>
             </button>
   
-            <button class="icon-button" title="마이 캘린더">
+            <button class="icon-button" title="마이 캘린더" data-favcal-toggle="1" @click.stop.prevent="toggleCalendar">
               <svg
                 width="24"
                 height="24"
@@ -119,6 +119,7 @@
 import { useAuthStore } from "@/stores/auth";
 import { computed } from "vue";
 import { logoutApi } from "@/api/auth";
+import { useUIStore } from "@/stores/ui";
 
 // export default {
 //   name: "NavigationBar",
@@ -150,6 +151,10 @@ export default {
     },
   },
   methods: {
+    toggleCalendar() {
+      const ui = useUIStore();
+      ui.toggleFavoriteCalendar();
+    },
     goFavorites() {
       // 네 라우트에 맞게 수정
       this.$router.push("/favorite");

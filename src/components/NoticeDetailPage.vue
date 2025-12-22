@@ -24,7 +24,21 @@
               <span class="news-views">조회수 {{ notice.views }}</span>
             </div>
 
-            <h1 class="detail-title">{{ notice.title }}</h1>
+            <div class="title-row">
+              <h1 class="detail-title">{{ notice.title }}</h1>
+
+              <button
+                v-if="notice.type === '청약'"
+                class="favorite-btn"
+                :class="{ liked }"
+                @click="toggleFavorite"
+                aria-label="관심 청약"
+              >
+                <HeartFill v-if="liked" />
+                <HeartOutline v-else />
+              </button>
+            </div>
+
           </div>
 
           <div class="detail-body">
@@ -54,12 +68,18 @@
 </template>
 
 <script>
+
+import HeartOutline from "@/components/icons/HeartOutline.vue";
+import HeartFill from "@/components/icons/HeartFill.vue";
 import HotNewsSidebar from "@/components/notices/HotNewsSidebar.vue";
 import { fetchNoticeDetail, fetchNoticeMain } from "@/api/notice";
+import { useAuthStore } from "@/stores/auth";
+
+const API_BASE = import.meta.env.VITE_API_BASE;
 
 export default {
   name: "NoticeDetailPage",
-  components: { HotNewsSidebar },
+  components: { HotNewsSidebar, HeartOutline, HeartFill,},
   props: {
     noticeId: { type: [String, Number], required: true },
   },
@@ -67,7 +87,8 @@ export default {
     return {
       isLoading: false,
       errorMsg: "",
-      notice: null,
+      notice: {},
+      liked: false,
       hotNews: [],
     };
   },
@@ -87,7 +108,9 @@ export default {
   },
   async mounted() {
     await this.loadAll();
+    await this.checkFavorite();
   },
+
   watch: {
     // 같은 컴포넌트 재사용되는 경우(라우트 param만 변할 때)
     noticeId: {
@@ -95,10 +118,74 @@ export default {
       async handler() {
         window.scrollTo({ top: 0, behavior: "smooth" });
         await this.loadDetail();
+        await this.checkFavorite();
       },
     },
   },
   methods: {
+    async checkFavorite() {
+      const auth = useAuthStore();
+      if (!auth.accessToken) return;
+
+      const res = await fetch(
+        `${API_BASE}/favorite?type=청약`,
+        {
+          headers: {
+            Authorization: `Bearer ${auth.accessToken}`,
+          },
+          credentials: "include",
+        }
+      );
+
+      const ids = await res.json(); // [noticeId, ...]
+      this.liked = ids.includes(this.notice.noticeId);
+    },
+
+    async toggleFavorite() {
+      const auth = useAuthStore();
+      if (!auth.accessToken) {
+        alert("로그인 후 이용해주세요");
+        this.$router.push("/login");
+        return;
+      }
+
+      const noticeId = this.notice.noticeId;
+      const has = this.liked;
+
+      // optimistic
+      this.liked = !has;
+
+      try {
+        if (has) {
+          await fetch(
+            `${API_BASE}/favorite?type=청약&referenceId=${noticeId}`,
+            {
+              method: "DELETE",
+              headers: {
+                Authorization: `Bearer ${auth.accessToken}`,
+              },
+              credentials: "include",
+            }
+          );
+        } else {
+          await fetch(`${API_BASE}/favorite`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${auth.accessToken}`,
+            },
+            credentials: "include",
+            body: JSON.stringify({
+              type: "청약",
+              referenceId: noticeId,
+            }),
+          });
+        }
+      } catch (e) {
+        // rollback
+        this.liked = has;
+      }
+    },
     async loadAll() {
       await Promise.all([this.loadHot(), this.loadDetail()]);
     },
@@ -270,6 +357,61 @@ export default {
 .back-btn:hover {
   opacity: 0.9;
 }
+
+/* 제목 + 하트 정렬 */
+.title-row {
+  position: relative;
+  padding-right: 44px; /* 하트 자리 확보 */
+}
+
+/* 하트 버튼 */
+.favorite-btn {
+  position: absolute;
+  top: 2px;
+  right: 0;
+
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid #e6ded9;
+  background: #fff;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* 아이콘 크기 */
+.favorite-btn svg {
+  width: 18px;
+  height: 18px;
+  color: #c4b6ad;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+/* hover */
+.favorite-btn:hover {
+  background: rgba(255, 156, 51, 0.12);
+  border-color: #ff9c33;
+}
+
+.favorite-btn:hover svg {
+  transform: scale(1.15);
+}
+
+/* liked 상태 */
+.favorite-btn.liked {
+  background: #ff9c33;
+  border-color: #d37d33;
+}
+
+.favorite-btn.liked svg {
+  color: #fff;
+}
+
 
 @media (max-width: 1100px) {
   .content-wrapper {
