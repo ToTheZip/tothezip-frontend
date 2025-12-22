@@ -10,28 +10,63 @@
   --tothezip-beige-07: #b68461;
   --tothezip-beige-08: #936049;
   --tothezip-beige-09: #6f3d32;
+  --tothezip-beige-10: #4b1d1c;
 
   /* Cream Colors */
+  --tothezip-cream-01: #ffffff;
   --tothezip-cream-02: #fff9f0;
+  --tothezip-cream-03: #fff2d6;
+  --tothezip-cream-04: #ffebc7;
+  --tothezip-cream-05: #ffe4b3;
+  --tothezip-cream-06: #ffdca0;
+  --tothezip-cream-07: #e0c48b;
+  --tothezip-cream-08: #bfaf77;
+  --tothezip-cream-09: #9e9a63;
+  --tothezip-cream-10: #7d854f;
 
   /* Brown Colors */
   --tothezip-brown-01: #f4ece7;
   --tothezip-brown-02: #e8d3c3;
+  --tothezip-brown-03: #dbbb9f;
+  --tothezip-brown-04: #cfa27c;
+  --tothezip-brown-05: #c28a5a;
   --tothezip-brown-06: #a05730;
+  --tothezip-brown-07: #6f462e;
   --tothezip-brown-08: #543525;
+  --tothezip-brown-09: #39251c;
+  --tothezip-brown-10: #1f1612;
 
   /* Gray Colors */
+  --tothezip-gray-01: #f2ece9;
   --tothezip-gray-02: #dcd4cf;
   --tothezip-gray-03: #c0b6ae;
   --tothezip-gray-04: #a3978f;
+  --tothezip-gray-05: #7c726c;
+  --tothezip-gray-06: #5a524d;
 
   /* Orange Colors */
+  --tothezip-orange-01: #ffecd9;
+  --tothezip-orange-02: #ffd4ad;
+  --tothezip-orange-03: #ffbc81;
   --tothezip-orange-04: #ff9c33;
+  --tothezip-orange-05: #ffa455;
   --tothezip-orange-06: #ff9c33;
   --tothezip-orange-07: #d37d33;
+  --tothezip-orange-08: #a85726;
+  --tothezip-orange-09: #7c3a1a;
+  --tothezip-orange-10: #512210;
 
   /* Ruby Colors */
+  --tothezip-ruby-01: #fce6e8;
+  --tothezip-ruby-02: #f8c8cb;
+  --tothezip-ruby-03: #f3a9ae;
+  --tothezip-ruby-04: #ef8b91;
+  --tothezip-ruby-05: #ea6c75;
   --tothezip-ruby-06: #ff4f6e;
+  --tothezip-ruby-07: #c63f49;
+  --tothezip-ruby-08: #a43239;
+  --tothezip-ruby-09: #822629;
+  --tothezip-ruby-10: #601a1b;
 
   /* Additional UI Colors */
   --tothezip-text-placeholder: #d4c3b8;
