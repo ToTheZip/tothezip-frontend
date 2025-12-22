@@ -40,3 +40,22 @@ export async function fetchNoticeDetail(noticeId) {
   }
   return r.json(); // NoticeDto.Detail
 }
+
+// 캘린더용 청약 일정
+export async function fetchNoticeCalendar({ year, month }) {
+  const qs = new URLSearchParams({
+    year: String(year),
+    month: String(month), // 1~12
+  });
+
+  const r = await apiFetch(`/notice/calendar?${qs.toString()}`, {
+    method: "GET",
+  });
+
+  if (!r.ok) {
+    const t = await r.text().catch(() => "");
+    throw new Error(`NOTICE_CALENDAR_FAILED_${r.status}_${t}`);
+  }
+
+  return r.json(); // CalendarListDto
+}
