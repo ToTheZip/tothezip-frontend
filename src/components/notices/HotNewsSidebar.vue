@@ -3,30 +3,35 @@
     <div class="hot-news-container">
       <!-- 타이틀 영역 -->
       <div class="hot-header">
-        <div class="fire-icon">🔥</div>
-        <span class="hot-title">HOT</span>
+        <span class="fire-icon">🔥</span>
+        <h2 class="hot-title">지금 핫한 소식</h2>
       </div>
 
       <!-- HOT 뉴스 목록 -->
-      <div
-        v-for="news in hotNews"
-        :key="news.id"
-        class="hot-news-item"
-        @click="
-          $router.push({ name: 'NoticeDetail', params: { noticeId: news.id } })
-        "
-      >
-        <!-- 타입 영역 -->
-        <div class="news-header">
-          <span class="news-type">{{ news.type }}</span>
-          <div class="news-date">
-            <span>{{ news.date }}</span>
-          </div>
-        </div>
+      <div class="hot-list">
+        <div
+          v-for="(news, index) in hotNews"
+          :key="news.id"
+          class="hot-news-item"
+          @click="goDetail(news.id)"
+          :title="news.title" 
+        >
+          <!-- 마우스 올리면 전체 제목이 툴팁으로 뜨도록 title 속성 추가 -->
+          
+          <!-- 순위 뱃지 -->
+          <div class="rank-badge">{{ index + 1 }}</div>
 
-        <!-- 뉴스 제목 영역 -->
-        <div class="news-title-container">
-          <p class="news-title">{{ news.title }}</p>
+          <div class="news-content">
+            <!-- 메타 정보 (타입 | 날짜) -->
+            <div class="news-meta">
+              <span class="news-type">{{ news.type }}</span>
+              <span class="meta-dot">·</span>
+              <span class="news-date">{{ news.date }}</span>
+            </div>
+
+            <!-- 제목 (한 줄 말줄임 적용) -->
+            <h3 class="news-title">{{ news.title }}</h3>
+          </div>
         </div>
       </div>
     </div>
@@ -42,138 +47,164 @@ export default {
       required: true,
     },
   },
+  methods: {
+    goDetail(id) {
+      this.$router.push({ name: 'NoticeDetail', params: { noticeId: id } });
+    }
+  }
 };
 </script>
 
 <style scoped>
+/* ----------- Layout ----------- */
 .hot-sidebar {
-  position: sticky;
-  top: 100px; /* navbar (80px) + search bar (80px) + padding (20px) */
-  padding: 30px 0;
+  width: 100%;
 }
 
 .hot-news-container {
-  width: 247px;
-  background: #fff;
-  border: 0.5px solid #f4ece7;
+  background: var(--tothezip-cream-01);
+  border: 1px solid var(--tothezip-beige-03);
   border-radius: 20px;
-  box-shadow: 0px 2px 4px 0px rgba(0, 0, 0, 0.2);
-  padding: 8px 5px;
+  box-shadow: 0 4px 16px rgba(75, 29, 28, 0.04);
   overflow: hidden;
+  padding: 24px 20px;
 }
 
-/* HOT 헤더 */
+/* ----------- Header ----------- */
 .hot-header {
   display: flex;
   align-items: center;
-  gap: 15px;
-  padding: 10px;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--tothezip-beige-02);
 }
 
 .fire-icon {
-  width: 25px;
-  height: 25px;
-  font-size: 25px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-size: 20px;
 }
 
 .hot-title {
-  font-family: "Pretendard Variable", "Pretendard", sans-serif;
-  font-size: 15px;
-  font-weight: 600;
-  color: #000;
-}
-
-/* HOT 뉴스 아이템 */
-.hot-news-item {
-  height: 90px;
-  border-top: 0.5px solid #f4ece7;
-  position: relative;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.hot-news-item:hover {
-  background-color: rgba(244, 236, 231, 0.3);
-}
-
-.news-header {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  padding: 6px 10px;
-  margin-top: 2.5px;
-}
-
-.news-type {
   font-family: "Pretendard", sans-serif;
-  font-size: 11px;
-  font-weight: 500;
-  color: #000;
-  white-space: nowrap;
-}
-
-.news-date {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 8px;
-  border-left: 1px solid #c0b6ae;
-}
-
-.news-date span {
-  font-family: "Pretendard", sans-serif;
-  font-size: 6px;
-  font-weight: 500;
-  color: #a3978f;
-  white-space: nowrap;
-}
-
-.news-title-container {
-  display: flex;
-  align-items: flex-start;
-  padding: 0 10px;
-  margin-top: 4px;
-}
-
-.news-title {
-  font-family: "Pretendard", sans-serif;
-  font-size: 15px;
-  font-weight: 500;
-  color: #000;
-  line-height: 1.4;
-  max-width: 225px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--tothezip-brown-09);
   margin: 0;
 }
 
-/* 모바일에서는 sticky 해제 */
-@media (max-width: 760px) {
-  .hot-sidebar {
-    position: static !important;
-    top: auto !important;
-    height: auto !important;
-    z-index: auto !important;
-    width: 100% !important;
+/* ----------- List ----------- */
+.hot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px; /* 간격을 조금 더 넓혀서 시원하게 */
+}
 
-    padding: 12px 0 20px;
+/* ----------- Item ----------- */
+.hot-news-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start; /* 상단 정렬 */
+  padding: 8px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: transparent;
+}
+
+.hot-news-item:hover {
+  background-color: var(--tothezip-beige-01);
+  transform: translateX(4px); /* 살짝 오른쪽으로 이동하는 효과 */
+}
+
+/* Rank Badge */
+.rank-badge {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  background-color: var(--tothezip-orange-04);
+  color: #fff;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  margin-top: 1px; /* 텍스트 높이와 시각적 정렬 맞춤 */
+}
+
+/* 4위부터는 색상 변경 */
+.hot-news-item:nth-child(n+4) .rank-badge {
+  background-color: var(--tothezip-brown-03); /* 베이지보다 조금 더 진한 색으로 가독성 확보 */
+}
+
+.news-content {
+  flex: 1;
+  min-width: 0; /* flex item 내부에서 말줄임표 작동하게 함 */
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Meta */
+.news-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--tothezip-brown-05);
+  line-height: 1;
+}
+
+.news-type {
+  font-weight: 700;
+  color: var(--tothezip-brown-08); /* 조금 더 진하게 */
+}
+
+.meta-dot {
+  color: var(--tothezip-beige-04);
+  font-weight: 700;
+}
+
+.news-date {
+  font-family: "Pretendard", sans-serif;
+  letter-spacing: -0.01em;
+  color: var(--tothezip-brown-04);
+}
+
+/* Title - 한 줄 말줄임 적용 */
+.news-title {
+  font-family: "Pretendard", sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tothezip-brown-09);
+  margin: 0;
+  line-height: 1.5;
+  
+  /* 한 줄 말줄임 핵심 속성 */
+  white-space: nowrap;      /* 줄바꿈 금지 */
+  overflow: hidden;         /* 넘치는 텍스트 숨김 */
+  text-overflow: ellipsis;  /* 말줄임표(...) 표시 */
+  display: block;           /* 블록 요소로 처리 */
+}
+
+/* ----------- Responsive ----------- */
+@media (max-width: 1024px) {
+  .hot-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
   }
+}
 
+@media (max-width: 768px) {
   .hot-news-container {
-    width: 100%;
-    max-width: 520px;
-    margin: 0 auto;
-    padding: 10px 8px;
+    padding: 20px 16px;
+    border-radius: 16px;
   }
-
-  .news-title {
-    max-width: 100%;
+  
+  .hot-list {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 }
 </style>
