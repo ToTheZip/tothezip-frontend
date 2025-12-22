@@ -30,7 +30,7 @@
               class="sub-image"
             />
 
-            <!-- ✅ 4번째 썸네일(= index 3) 위에 +n -->
+            <!-- 4번째 썸네일(= index 3) 위에 +n -->
             <div
               v-if="index === 3 && remainingCount > 0"
               class="image-more-overlay"
@@ -72,8 +72,39 @@
 
       <div class="section-divider">
         <h3 class="section-title">매물</h3>
-        <div class="listings-placeholder">
-          <p>매물 리스트 영역</p>
+        <div class="listings-area">
+          <div v-if="listingsLoading" class="listings-placeholder">
+            <p>불러오는 중...</p>
+          </div>
+
+          <div v-else-if="listingsError" class="listings-placeholder">
+            <p>{{ listingsError }}</p>
+          </div>
+
+          <div v-else-if="listings.length === 0" class="listings-placeholder">
+            <p>등록된 매물이 없어요.</p>
+          </div>
+
+          <div v-else class="listings-list">
+            <div
+              v-for="item in listings"
+              :key="item.propertyId"
+              class="listing-item"
+            >
+              <div class="listing-top">
+                <span class="listing-type">{{ item.type }}</span>
+                <span class="listing-price">{{
+                  formatListingPrice(item)
+                }}</span>
+              </div>
+
+              <div class="listing-bottom">
+                <span class="meta">{{ toPyeong(item.area) }}평</span>
+                <span class="dot">·</span>
+                <span class="meta">{{ item.floor }}층</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -88,6 +119,7 @@
 </template>
 
 <script>
+import axios from "axios";
 import ChevronLeft from "@/components/icons/ChevronLeft.vue";
 import HeartOutline from "@/components/icons/HeartOutline.vue";
 import MapPin from "@/components/icons/MapPin.vue";
@@ -107,7 +139,7 @@ export default {
   emits: ["close", "toggle-like"],
   computed: {
     allImages() {
-      // ✅ DTO의 images가 있으면 그걸 우선
+      // DTO의 images가 있으면 그걸 우선
       const arr = Array.isArray(this.property?.images)
         ? this.property.images
         : [];
@@ -133,6 +165,78 @@ export default {
     remainingCount() {
       // 전체가 5장 초과면 (main 1 + thumbs 4) 이후 개수
       return Math.max(0, this.allImages.length - 5);
+    },
+  },
+  data() {
+    return {
+      listings: [],
+      listingsLoading: false,
+      listingsError: "",
+    };
+  },
+  watch: {
+    "property.aptSeq": {
+      immediate: true,
+      handler() {
+        this.fetchListings();
+      },
+    },
+  },
+  methods: {
+    async fetchListings() {
+      const aptSeq = this.property?.aptSeq;
+      if (!aptSeq) return;
+
+      this.listingsLoading = true;
+      this.listingsError = "";
+      this.listings = [];
+
+      try {
+        const { data } = await axios.get(`/property/${aptSeq}/listings`);
+        this.listings = Array.isArray(data) ? data : [];
+      } catch (e) {
+        console.error(e);
+        this.listingsError = "매물 정보를 불러오지 못했어요.";
+      } finally {
+        this.listingsLoading = false;
+      }
+    },
+
+    // VARCHAR → number 처리
+    toNumber(v) {
+      if (v == null) return null;
+      const s = String(v).trim();
+      if (!s) return null;
+      const n = Number(s);
+      return Number.isFinite(n) ? n : null;
+    },
+
+    // ㎡ → 평
+    toPyeong(area) {
+      const n = Number(area);
+      if (!Number.isFinite(n)) return "-";
+      return (n / 3.305785).toFixed(1);
+    },
+
+    formatMoney(v) {
+      const n = this.toNumber(v);
+      if (n == null) return "-";
+
+      if (n >= 10000) {
+        const eok = Math.floor(n / 10000);
+        const rest = n % 10000;
+        return rest === 0 ? `${eok}억` : `${eok}억 ${rest}만원`;
+      }
+      return `${n}만원`;
+    },
+
+    formatListingPrice(item) {
+      if (item.type === "월세") {
+        const dep = item.deposit ? this.formatMoney(item.deposit) : "0만원";
+        const rent = this.formatMoney(item.price);
+        return `월세 ${dep} / ${rent}`;
+      }
+      return `${item.type} ${this.formatMoney(item.price)}`;
     },
   },
 };
@@ -327,5 +431,64 @@ export default {
 
 .heart-icon {
   color: var(--tothezip-brown-07);
+}
+
+.listings-area {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.listings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.listing-item {
+  border: 1px solid var(--tothezip-brown-01);
+  border-radius: 12px;
+  padding: 10px;
+  background: #fff;
+}
+
+.listing-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.listing-type {
+  font-family: "Pretendard", sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tothezip-brown-06);
+  border: 1px solid var(--tothezip-brown-01);
+  border-radius: 999px;
+  padding: 2px 8px;
+  flex-shrink: 0;
+}
+
+.listing-price {
+  font-family: "Pretendard", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #000;
+  white-space: nowrap;
+}
+
+.listing-bottom {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--tothezip-gray-04);
+  font-family: "Pretendard", sans-serif;
+  font-size: 11px;
+}
+
+.dot {
+  opacity: 0.6;
 }
 </style>
