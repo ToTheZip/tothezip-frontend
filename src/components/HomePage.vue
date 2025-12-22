@@ -37,7 +37,7 @@
     <div class="main-content">
       <div class="container">
         <!-- Recommended Properties Section -->
-        <PropertiesSection 
+        <PropertiesSection
           :isLoggedIn="isLoggedIn"
           :region-name="regionName"
           :tags="propertyTags"
@@ -159,8 +159,8 @@ export default {
           name: p.aptName,
           address: p.roadAddress,
           rating: p.propertyRating,
-          tags: p.tags || [],          // ✅ 서버가 tags 내려주면 바로 반영
-          image: p.imageUrl || "",     // PropertyCard가 image를 보니까 유지
+          tags: p.tags || [], // ✅ 서버가 tags 내려주면 바로 반영
+          image: p.imageUrl || "", // PropertyCard가 image를 보니까 유지
         }));
       } catch (e) {
         console.error("추천 매물 로딩 실패", e);
@@ -239,13 +239,16 @@ export default {
     //   // 공지사항 페이지
     //   this.$router.push("/notices");
     // },
-    
+
     goToNewsDetail(id) {
       this.$router.push({ name: "NoticeDetail", params: { noticeId: id } });
     },
 
     goToNewsList() {
-      this.$router.push({ name: "NoticeList", query: { typeFilter: "ALL", sort: "latest", page: 1 } });
+      this.$router.push({
+        name: "NoticeList",
+        query: { typeFilter: "ALL", sort: "latest", page: 1 },
+      });
     },
 
     formatDate(dateLike) {
@@ -347,12 +350,15 @@ export default {
   width: 100%;
   display: flex;
   justify-content: center;
+  z-index: 200;
 }
 
 /* Main Content */
 .main-content {
   width: 100%;
   background: white;
+  position: relative;
+  z-index: 1;
 }
 
 .container {
