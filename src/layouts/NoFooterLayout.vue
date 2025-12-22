@@ -17,14 +17,21 @@ export default {
 
 <style scoped>
 .layout {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   background: #fff;
 }
 
 .content {
-  flex: 1;
-  padding-top: 80px; /* Header height */
+  height: calc(100vh - 80px);
+  margin-top: 80px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.content > * {
+  width: 100%;
+  height: 100%;
 }
 </style>

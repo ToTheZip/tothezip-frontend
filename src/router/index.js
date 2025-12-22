@@ -5,6 +5,7 @@ import SignupPage from "@/components/SignupPage.vue";
 import LoginPage from "@/components/LoginPage.vue";
 import NoticeListPage from "@/components/NoticeListPage.vue";
 import NoticeDetailPage from "@/components/NoticeDetailPage.vue";
+import SearchMapPage from "@/components/SearchMapPage.vue";
 import { useAuthStore } from "@/stores/auth";
 
 const router = createRouter({
@@ -38,6 +39,12 @@ const router = createRouter({
       component: NoticeDetailPage,
       props: true,
       meta: { requiresAuth: true },
+    },
+    {
+      path: "/search",
+      name: "SearchMap",
+      component: SearchMapPage,
+      meta: { layout: "noFooter" },
     },
   ],
 });
