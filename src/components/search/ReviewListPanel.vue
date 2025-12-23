@@ -619,22 +619,11 @@ export default {
 
       this.toastTimer = setTimeout(() => {
         this.showSuccessToast = false;
-      }, 2800); // 1.5초 후 사라짐
+      }, 2800);
     },
     recalcStatsFromCurrentList() {
-      // 현재 화면에 들고 있는 reviews(보통 limit개) 기준으로 통계를 즉시 갱신
-      // (서버의 전체 통계와 100% 동일하진 않을 수 있지만 "즉시 반영" 목적엔 좋음)
-
       const list = Array.isArray(this.reviews) ? this.reviews : [];
       const total = Number(this.totalCount || 0);
-
-      // totalCount는 "전체 리뷰 수"이므로 그대로 두고,
-      // 현재 리스트에서 rating 분포를 계산할 때는
-      // "현재 리스트" 기준으로만 계산해서 보여줄지,
-      // 아니면 "전체" 기반을 유지할지 선택이 필요함.
-      //
-      // 여기서는 UX상 자연스럽게: "현재 리스트(화면)" 기준으로 즉시 보이도록 갱신.
-      // (서버 전체 분포가 꼭 필요하면 아래 2번 방법 참고)
 
       const counts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
       let sum = 0;
@@ -650,12 +639,8 @@ export default {
 
       this.counts = counts;
       this.avgRating = n ? sum / n : 0;
-
-      // totalCount는 "전체 리뷰 수"라서 그대로 유지하는 편이 일반적
-      // 다만 처음 페이지에서만 보는 화면이면 totalCount와 n이 같으니 문제 없음
     },
 
-    // 특정 리뷰 1건의 rating 변경/추가/삭제를 "증분"으로 반영하고 싶으면 이 방식도 가능
     applyRatingDelta({ prevRating = null, nextRating = null }) {
       const counts = { ...this.counts };
 
@@ -674,7 +659,6 @@ export default {
 
       this.counts = counts;
 
-      // avgRating도 counts로 다시 계산
       const totalRatings =
         counts[1] + counts[2] + counts[3] + counts[4] + counts[5];
       const sum =
