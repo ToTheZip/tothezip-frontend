@@ -34,35 +34,12 @@
         </div>
 
         <!-- 리뷰 통계 -->
-        <div v-if="!loading && !error && totalCount > 0" class="review-stats">
-          <div class="stats-left">
-            <div class="avg-score">{{ avgRating.toFixed(1) }}</div>
-            <div class="avg-stars">
-              <span
-                v-for="i in 5"
-                :key="i"
-                class="star"
-                :class="{ filled: i <= Math.round(avgRating) }"
-              >
-                ★
-              </span>
-            </div>
-            <div class="stats-total">({{ totalCount }}개)</div>
-          </div>
-
-          <div class="stats-right">
-            <div v-for="s in [5, 4, 3, 2, 1]" :key="s" class="stat-row">
-              <span class="stat-label">{{ s }}점</span>
-              <div class="stat-bar">
-                <div
-                  class="stat-bar-fill"
-                  :style="{ width: ratingPercent(s) + '%' }"
-                />
-              </div>
-              <span class="stat-count">{{ ratingCount(s) }}</span>
-            </div>
-          </div>
-        </div>
+        <ReviewStats
+          v-if="!loading && !error && totalCount > 0"
+          :avg-rating="avgRating"
+          :total-count="totalCount"
+          :counts="counts"
+        />
 
         <div
           v-if="!loading && !error && totalCount > 0"
@@ -85,91 +62,19 @@
         <!-- 리뷰 리스트 -->
         <div v-else class="reviews-list">
           <transition-group name="review" tag="div" class="reviews-list-inner">
-            <div v-for="r in reviews" :key="r.reviewId" class="review-item">
-              <img
-                class="avatar"
-                :src="resolveImg(r.profileImg)"
-                alt="profile"
-                @error="onImgError"
-              />
-              <div class="review-body">
-                <div class="review-top">
-                  <!-- 편집 중 아닐 때만 별점 -->
-                  <div v-if="editingId !== r.reviewId" class="stars">
-                    <span
-                      v-for="i in 5"
-                      :key="i"
-                      class="star"
-                      :class="{ filled: i <= (Number(r.reviewRating) || 0) }"
-                    >
-                      ★
-                    </span>
-                  </div>
-
-                  <span class="date">{{ formatDate(r.reviewDate) }}</span>
-                </div>
-
-                <!-- 편집 모드 -->
-                <div v-if="editingId === r.reviewId" class="edit-area">
-                  <div class="rating-row small">
-                    <span
-                      v-for="i in 5"
-                      :key="i"
-                      class="star"
-                      :class="{ filled: i <= editRating }"
-                      @click="editRating = i"
-                    >
-                      ★
-                    </span>
-                  </div>
-
-                  <textarea
-                    v-model="editContent"
-                    class="content-input"
-                    rows="3"
-                  />
-                  <p v-if="editError" class="submit-error">{{ editError }}</p>
-
-                  <div class="write-actions">
-                    <button class="cancel" type="button" @click="cancelEdit">
-                      취소
-                    </button>
-                    <button
-                      class="submit"
-                      type="button"
-                      :disabled="editing"
-                      @click="saveEdit"
-                    >
-                      {{ editing ? "저장 중..." : "저장" }}
-                    </button>
-                  </div>
-                </div>
-
-                <!-- 일반 모드 -->
-                <div v-else class="content">{{ r.reviewContent }}</div>
-
-                <!-- 버튼은 아래로 -->
-                <div
-                  v-if="isMine(r) && editingId !== r.reviewId"
-                  class="review-actions-row"
-                >
-                  <button
-                    class="action-btn"
-                    type="button"
-                    @click.stop="startEdit(r)"
-                  >
-                    편집
-                  </button>
-                  <button
-                    class="action-btn danger"
-                    type="button"
-                    @click.stop="deleteReview(r)"
-                  >
-                    삭제
-                  </button>
-                </div>
-              </div>
-            </div>
+            <ReviewItem
+              v-for="r in reviews"
+              :key="r.reviewId"
+              :review="r"
+              :is-mine="isMine(r)"
+              :is-editing="editingId === r.reviewId"
+              :editing="editing"
+              :edit-error="editError"
+              @edit="startEdit(r)"
+              @delete="deleteReview(r)"
+              @save-edit="handleSaveEdit(r, $event)"
+              @cancel-edit="cancelEdit"
+            />
           </transition-group>
 
           <button
@@ -253,13 +158,18 @@
 <script>
 import axios from "axios";
 import ChevronLeft from "@/components/icons/ChevronLeft.vue";
-import defaultProfile from "@/assets/images/default_profile.png";
 import { useAuthStore } from "@/stores/auth";
 import { http } from "@/api/http";
+import ReviewItem from "@/components/search/ReviewItem.vue";
+import ReviewStats from "@/components/search/ReviewStats.vue";
 
 export default {
   name: "ReviewListPanel",
-  components: { ChevronLeft },
+  components: {
+    ChevronLeft,
+    ReviewItem,
+    ReviewStats,
+  },
   props: {
     aptSeq: { type: String, required: true },
     buildingName: { type: String, default: "" },
@@ -421,14 +331,6 @@ export default {
         this.loading = false;
       }
     },
-    ratingCount(score) {
-      return Number(this.counts?.[score] || 0);
-    },
-    ratingPercent(score) {
-      const total = Number(this.totalCount || 0);
-      if (!total) return 0;
-      return Math.round((this.ratingCount(score) / total) * 100);
-    },
 
     async loadMore() {
       if (!this.hasMore) return;
@@ -513,32 +415,18 @@ export default {
 
     startEdit(r) {
       this.editingId = r.reviewId;
-      this.editContent = r.reviewContent || "";
-      this.editRating = Number(r.reviewRating) || 5;
       this.editError = "";
     },
 
     cancelEdit() {
       this.editingId = null;
-      this.editContent = "";
-      this.editRating = 5;
       this.editError = "";
       this.editing = false;
     },
 
-    async saveEdit() {
-      const target = this.reviews.find((x) => x.reviewId === this.editingId);
-      const prevRating = target ? Number(target.reviewRating) || 0 : 0;
-
-      if (!this.editingId) return;
-
-      const content = this.editContent.trim();
-      if (!content) {
-        this.editError = "내용을 입력해주세요.";
-        return;
-      }
-      if (this.editRating < 1 || this.editRating > 5) {
-        this.editError = "별점은 1~5점이어야 해요.";
+    async handleSaveEdit(review, { content, rating, error }) {
+      if (error) {
+        this.editError = error;
         return;
       }
 
@@ -546,22 +434,15 @@ export default {
       this.editError = "";
 
       try {
-        await http.put(`/reviews/${this.editingId}`, {
+        await http.put(`/reviews/${review.reviewId}`, {
           reviewContent: content,
-          reviewRating: this.editRating,
+          reviewRating: rating,
         });
 
-        const target = this.reviews.find((x) => x.reviewId === this.editingId);
-        if (target) {
-          target.reviewContent = content;
-          target.reviewRating = this.editRating;
-          // 즉시 통계 반영
-          this.recalcStatsFromCurrentList();
-        }
-
+        review.reviewContent = content;
+        review.reviewRating = rating;
+        this.recalcStatsFromCurrentList();
         this.cancelEdit();
-        // 필요하면 최신화
-        // await this.fetchFirst();
       } catch (e) {
         console.error(e);
         this.editError =
@@ -576,18 +457,14 @@ export default {
     async deleteReview(r) {
       if (!confirm("리뷰를 삭제할까요?")) return;
 
-      const prevRating = Number(r.reviewRating) || 0;
-
       try {
         await http.delete(`/reviews/${r.reviewId}`);
 
         this.reviews = this.reviews.filter((x) => x.reviewId !== r.reviewId);
         this.totalCount = Math.max(0, this.totalCount - 1);
         this.hasMore = this.totalCount > this.reviews.length;
-
         this.recalcStatsFromCurrentList();
 
-        // 편집중인 리뷰 삭제한 경우
         if (this.editingId === r.reviewId) this.cancelEdit();
       } catch (e) {
         console.error(e);
@@ -599,17 +476,6 @@ export default {
       }
     },
 
-    resolveImg(profileImg) {
-      return profileImg && profileImg.trim() ? profileImg : defaultProfile;
-    },
-    onImgError(e) {
-      e.target.src = defaultProfile;
-    },
-    formatDate(v) {
-      if (!v) return "";
-      const d = new Date(v);
-      return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
-    },
     showToast() {
       this.showSuccessToast = true;
 
@@ -639,36 +505,6 @@ export default {
 
       this.counts = counts;
       this.avgRating = n ? sum / n : 0;
-    },
-
-    applyRatingDelta({ prevRating = null, nextRating = null }) {
-      const counts = { ...this.counts };
-
-      const dec = (v) => {
-        const k = Number(v);
-        if (k >= 1 && k <= 5)
-          counts[k] = Math.max(0, Number(counts[k] || 0) - 1);
-      };
-      const inc = (v) => {
-        const k = Number(v);
-        if (k >= 1 && k <= 5) counts[k] = Number(counts[k] || 0) + 1;
-      };
-
-      if (prevRating != null) dec(prevRating);
-      if (nextRating != null) inc(nextRating);
-
-      this.counts = counts;
-
-      const totalRatings =
-        counts[1] + counts[2] + counts[3] + counts[4] + counts[5];
-      const sum =
-        1 * counts[1] +
-        2 * counts[2] +
-        3 * counts[3] +
-        4 * counts[4] +
-        5 * counts[5];
-
-      this.avgRating = totalRatings ? sum / totalRatings : 0;
     },
   },
 };
@@ -835,91 +671,6 @@ export default {
   font-size: 11px;
 }
 
-/* 리뷰 리스트(기존) */
-.review-item {
-  display: flex;
-  gap: 10px;
-  border: 1px solid var(--tothezip-brown-01);
-  border-radius: 12px;
-  padding: 10px;
-  margin-bottom: 8px;
-}
-.avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-/* .review-top {
-  display: flex;
-  justify-content: space-between;
-  font-size: 10px;
-} */
-.review-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.date {
-  font-size: 10px;
-  font-weight: 500;
-  color: var(--tothezip-gray-04);
-  white-space: nowrap;
-  line-height: 1;
-}
-
-.review-top .right-meta {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.review-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.review-actions-row {
-  margin-top: 8px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-}
-
-.action-btn {
-  border: none;
-  background: rgba(255, 237, 219, 0.95);
-  color: #f08a3c;
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.action-btn:hover {
-  opacity: 0.85;
-}
-
-.action-btn.danger {
-  background: rgba(255, 230, 230, 0.95);
-  color: #d64b4b;
-}
-
-.edit-area {
-  margin-top: 8px;
-}
-
-.rating-row.small .star {
-  font-size: 13px;
-}
-
-.content {
-  font-size: 11px;
-  margin-top: 4px;
-}
 .more-button {
   width: 100%;
   height: 32px;
@@ -992,83 +743,6 @@ export default {
 
 :deep(.review-move) {
   transition: transform 0.28s ease;
-}
-.review-stats {
-  margin-top: 10px;
-  padding: 10px 10px;
-  border: 1px solid rgba(240, 138, 60, 0.18);
-  background: rgba(255, 237, 219, 0.55);
-  border-radius: 14px;
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.stats-left {
-  width: 78px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-}
-
-.avg-score {
-  font-size: 22px;
-  font-weight: 800;
-  color: #f08a3c;
-  letter-spacing: -0.5px;
-  line-height: 1;
-}
-
-.avg-stars {
-  display: inline-flex;
-  gap: 1px;
-  line-height: 1;
-}
-
-.stats-total {
-  font-size: 10px;
-  color: var(--tothezip-gray-04);
-}
-
-.stats-right {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.stat-row {
-  display: grid;
-  grid-template-columns: 28px 1fr 26px;
-  align-items: center;
-  gap: 8px;
-}
-
-.stat-label {
-  font-size: 10px;
-  color: var(--tothezip-gray-05);
-  white-space: nowrap;
-}
-
-.stat-count {
-  font-size: 10px;
-  color: var(--tothezip-gray-05);
-  text-align: right;
-  white-space: nowrap;
-}
-
-.stat-bar {
-  height: 8px;
-  background: rgba(255, 255, 255, 0.75);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.stat-bar-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: rgba(240, 138, 60, 0.85);
 }
 
 .stats-divider {

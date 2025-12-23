@@ -101,36 +101,12 @@
           </div>
 
           <div v-else class="listings-list">
-            <div
+            <ListingItem
               v-for="item in listings"
               :key="item.propertyId"
-              class="listing-item"
-            >
-              <div class="listing-top">
-                <span class="listing-type">{{ item.type }}</span>
-                <div class="listing-right">
-                  <span class="listing-price">{{
-                    formatListingPrice(item)
-                  }}</span>
-                  <button
-                    class="listing-like-button favorite-btn"
-                    :class="{ liked: item.isLiked }"
-                    type="button"
-                    @click.stop="toggleListingLike(item)"
-                    aria-label="찜"
-                  >
-                    <HeartFill v-if="item.isLiked" class="icon" />
-                    <HeartOutline v-else class="icon" />
-                  </button>
-                </div>
-              </div>
-
-              <div class="listing-bottom">
-                <span class="meta">{{ toPyeong(item.area) }}평</span>
-                <span class="dot">·</span>
-                <span class="meta">{{ item.floor }}층</span>
-              </div>
-            </div>
+              :listing="item"
+              @toggle-like="toggleListingLike"
+            />
           </div>
         </div>
       </div>
@@ -174,89 +150,33 @@
         </div>
 
         <div v-else class="reviews-list">
-          <div v-for="r in reviews" :key="r.reviewId" class="review-item">
-            <img
-              class="avatar"
-              :src="resolveImg(r.profileImg)"
-              alt="profile"
-              @error="onImgError"
-            />
-
-            <div class="review-body">
-              <div class="review-top">
-                <div class="stars">
-                  <span
-                    v-for="i in 5"
-                    :key="i"
-                    class="star"
-                    :class="{ filled: i <= (Number(r.reviewRating) || 0) }"
-                    >★</span
-                  >
-                </div>
-              </div>
-
-              <div class="content">{{ r.reviewContent }}</div>
-            </div>
-          </div>
+          <ReviewItem v-for="r in reviews" :key="r.reviewId" :review="r" />
         </div>
       </div>
     </div>
   </div>
-  <teleport to="body">
-    <transition name="gallery">
-      <div v-if="galleryOpen" class="gallery-backdrop" @click="closeGallery">
-        <div class="gallery-modal" @click.stop>
-          <!-- 닫기 -->
-          <button class="gallery-close" type="button" @click="closeGallery">
-            ✕
-          </button>
 
-          <!-- 좌/우 -->
-          <button
-            class="gallery-nav left"
-            type="button"
-            @click.stop="prevImage"
-            aria-label="이전 이미지"
-          >
-            ‹
-          </button>
-
-          <img
-            class="gallery-image"
-            :src="allImages[galleryIndex]"
-            :alt="`${property.name} image ${galleryIndex + 1}`"
-          />
-
-          <button
-            class="gallery-nav right"
-            type="button"
-            @click.stop="nextImage"
-            aria-label="다음 이미지"
-          >
-            ›
-          </button>
-
-          <div class="gallery-footer">
-            <span class="gallery-count">
-              {{ galleryIndex + 1 }} / {{ allImages.length }}
-            </span>
-          </div>
-        </div>
-      </div>
-    </transition>
-  </teleport>
+  <ImageGallery
+    :is-open="galleryOpen"
+    :images="allImages"
+    :current-index="galleryIndex"
+    :alt-text="property.name"
+    @close="closeGallery"
+    @prev="prevImage"
+    @next="nextImage"
+  />
 </template>
 
 <script>
 import axios from "axios";
 import ChevronLeft from "@/components/icons/ChevronLeft.vue";
 import ChevronRight from "@/components/icons/ChevronRight.vue";
-import HeartOutline from "@/components/icons/HeartOutline.vue";
 import MapPin from "@/components/icons/MapPin.vue";
 import Building from "@/components/icons/Building.vue";
-import defaultProfile from "@/assets/images/default_profile.png";
 import { useAuthStore } from "@/stores/auth";
-import HeartFill from "@/components/icons/HeartFill.vue";
+import ListingItem from "@/components/search/ListingItem.vue";
+import ReviewItem from "@/components/search/ReviewItem.vue";
+import ImageGallery from "@/components/search/ImageGallery.vue";
 
 const API_BASE = import.meta.env.VITE_API_BASE;
 
@@ -265,10 +185,11 @@ export default {
   components: {
     ChevronLeft,
     ChevronRight,
-    HeartOutline,
-    HeartFill,
     MapPin,
     Building,
+    ListingItem,
+    ReviewItem,
+    ImageGallery,
   },
   props: {
     property: { type: Object, required: true },
@@ -328,10 +249,7 @@ export default {
       },
     },
   },
-  beforeUnmount() {
-    window.removeEventListener("keydown", this.onGalleryKeydown);
-    document.body.style.overflow = "";
-  },
+
   methods: {
     /* =========================
         매물 찜 토글
@@ -452,68 +370,6 @@ export default {
         this.reviewsLoading = false;
       }
     },
-    resolveImg(profileImg) {
-      return profileImg && profileImg.trim() ? profileImg : defaultProfile;
-    },
-    onImgError(e) {
-      e.target.src = defaultProfile;
-    },
-
-    openAllReviews() {
-      // 부모가 패널 전환하도록 이벤트만 던짐
-      this.$emit("open-all-reviews", {
-        aptSeq: this.property?.aptSeq,
-        aptName: this.property?.name,
-      });
-    },
-
-    // --- util ---
-    toNumber(v) {
-      if (v == null) return null;
-      const s = String(v).trim();
-      if (!s) return null;
-      const n = Number(s);
-      return Number.isFinite(n) ? n : null;
-    },
-    toPyeong(area) {
-      const n = Number(area);
-      if (!Number.isFinite(n)) return "-";
-      return (n / 3.305785).toFixed(1);
-    },
-    formatMoney(v) {
-      const n = this.toNumber(v);
-      if (n == null) return "-";
-      if (n >= 10000) {
-        const eok = Math.floor(n / 10000);
-        const rest = n % 10000;
-        return rest === 0 ? `${eok}억` : `${eok}억 ${rest}만원`;
-      }
-      return `${n}만원`;
-    },
-    formatListingPrice(item) {
-      if (item.type === "월세") {
-        const dep = item.deposit ? this.formatMoney(item.deposit) : "0만원";
-        const rent = this.formatMoney(item.price);
-        return `월세 ${dep} / ${rent}`;
-      }
-      return `${item.type} ${this.formatMoney(item.price)}`;
-    },
-
-    // 프로필 이미지 경로 처리 (서버가 /uploads/... 처럼 주는 케이스 대응)
-    profileSrc(path) {
-      if (!path) return "/images/default_profile.png";
-      // 이미 http로 내려오면 그대로
-      if (String(path).startsWith("http")) return path;
-      return path; // "/uploads/xxx.png" 형태면 그대로 사용
-    },
-
-    formatDate(v) {
-      if (!v) return "";
-      const s = String(v).replace(" ", "T");
-      const d = new Date(s);
-      if (Number.isNaN(d.getTime())) return String(v).slice(0, 10);
-      return d.toISOString().slice(0, 10);
-    },
     openGallery(startIndex = 0) {
       if (!this.allImages.length) return;
       this.galleryIndex = Math.min(
@@ -521,23 +377,10 @@ export default {
         this.allImages.length - 1
       );
       this.galleryOpen = true;
-      console.log(
-        "galleryOpen:",
-        this.galleryOpen,
-        "index:",
-        this.galleryIndex,
-        "len:",
-        this.allImages.length
-      );
-
-      window.addEventListener("keydown", this.onGalleryKeydown);
-      document.body.style.overflow = "hidden"; // 뒤 스크롤 방지
     },
 
     closeGallery() {
       this.galleryOpen = false;
-      window.removeEventListener("keydown", this.onGalleryKeydown);
-      document.body.style.overflow = "";
     },
 
     prevImage() {
@@ -550,53 +393,11 @@ export default {
       if (!this.allImages.length) return;
       this.galleryIndex = (this.galleryIndex + 1) % this.allImages.length;
     },
-
-    onGalleryKeydown(e) {
-      if (!this.galleryOpen) return;
-
-      if (e.key === "Escape") this.closeGallery();
-      if (e.key === "ArrowLeft") this.prevImage();
-      if (e.key === "ArrowRight") this.nextImage();
-    },
   },
 };
 </script>
 
 <style scoped>
-.listing-like-button.favorite-btn {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  border: 1px solid var(--tothezip-beige-04);
-  background: #fff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.listing-like-button .icon {
-  width: 14px;
-  height: 14px;
-  color: var(--tothezip-brown-05);
-}
-/* hover */
-.listing-like-button:hover {
-  background: var(--tothezip-orange-01);
-  border-color: var(--tothezip-orange-03);
-}
-.listing-like-button:hover .icon {
-  transform: scale(1.15);
-}
-/* liked 상태 */
-.listing-like-button.liked {
-  background: var(--tothezip-orange-04);
-  border-color: var(--tothezip-orange-04);
-}
-.listing-like-button.liked .icon {
-  color: #ffffff;
-}
-
 .property-detail-panel {
   position: absolute;
   left: 277px;
@@ -821,176 +622,7 @@ export default {
   flex-shrink: 0;
 }
 
-.listing-price {
-  font-family: "Pretendard", sans-serif;
-  font-size: 12px;
-  font-weight: 600;
-  color: #000;
-  white-space: nowrap;
-}
-
-.listing-bottom {
-  margin-top: 6px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--tothezip-gray-04);
-  font-family: "Pretendard", sans-serif;
-  font-size: 11px;
-}
-
-.dot {
-  opacity: 0.6;
-}
-
-.listing-right {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.listing-like-button {
-  width: 22px;
-  height: 22px;
-  border: none;
-  background: transparent;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  cursor: pointer;
-}
-
-.listing-heart-icon {
-  color: var(--tothezip-brown-07);
-}
-
-.listing-like-button.favorite-btn {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  border: 1px solid var(--tothezip-beige-04);
-  background: #fff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.listing-like-button .icon {
-  width: 14px;
-  height: 14px;
-  color: var(--tothezip-brown-05);
-}
-
-/* hover */
-.listing-like-button:hover {
-  background: var(--tothezip-orange-01);
-  border-color: var(--tothezip-orange-03);
-}
-
-.listing-like-button:hover .icon {
-  transform: scale(1.15);
-}
-
-/* liked 상태 */
-.listing-like-button.liked {
-  background: var(--tothezip-orange-04);
-  border-color: var(--tothezip-orange-04);
-}
-
-.listing-like-button.liked .icon {
-  color: #ffffff;
-}
-
-/* 리뷰 헤더(제목 + 화살표) */
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-.chevron-right-icon {
-  color: var(--tothezip-brown-07);
-}
-
-/* 리뷰 리스트 */
-.reviews-area {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.reviews-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.review-item {
-  display: flex;
-  gap: 10px;
-  border: 1px solid var(--tothezip-brown-01);
-  border-radius: 12px;
-  padding: 10px;
-  background: #fff;
-}
-
-.review-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  object-fit: cover;
-  border: 1px solid var(--tothezip-brown-01);
-}
-
-.review-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.review-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.stars {
-  display: inline-flex;
-  gap: 2px;
-  font-size: 12px;
-  line-height: 1;
-}
-
-.star {
-  opacity: 0.25;
-  color: #cfc5bf;
-}
-
-.star.filled {
-  opacity: 1;
-  color: var(--tothezip-ruby-06);
-}
-
-.review-date {
-  font-family: "Pretendard", sans-serif;
-  font-size: 10px;
-  color: var(--tothezip-gray-04);
-  white-space: nowrap;
-}
-
-.review-content {
-  margin: 6px 0 0 0;
-  font-family: "Pretendard", sans-serif;
-  font-size: 12px;
-  color: #000;
-  line-height: 1.35;
-  word-break: break-word;
-}
-
+/* 리뷰 섹션 */
 .review-count {
   margin-left: 4px;
   font-size: 12px;
@@ -1029,158 +661,5 @@ export default {
 
 .reviews-more-button:hover .chevron-icon {
   opacity: 0.7;
-}
-
-.reviews-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.review-item {
-  display: flex;
-  gap: 10px;
-  border: 1px solid var(--tothezip-brown-01);
-  border-radius: 12px;
-  padding: 10px;
-  background: #fff;
-}
-
-.avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  object-fit: cover;
-  border: 1px solid var(--tothezip-brown-01);
-  flex-shrink: 0;
-}
-
-.review-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.review-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 6px;
-}
-
-.stars {
-  display: inline-flex;
-  gap: 1px;
-  font-size: 11px;
-  line-height: 1;
-}
-
-.star {
-  opacity: 0.25;
-}
-
-.star.filled {
-  opacity: 1;
-}
-
-.content {
-  margin-top: 6px;
-  font-family: "Pretendard", sans-serif;
-  font-size: 11px;
-  color: #000;
-  line-height: 1.35;
-  word-break: break-word;
-}
-</style>
-
-<style>
-.gallery-backdrop {
-  position: fixed;
-  inset: 0;
-  margin: 0;
-  background: rgba(0, 0, 0, 0.65);
-  z-index: 2147483647;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 18px;
-}
-
-.gallery-modal {
-  position: relative;
-  width: min(92vw, 720px);
-  height: min(82vh, 520px);
-  background: rgba(20, 20, 20, 0.95);
-  border-radius: 16px;
-  overflow: hidden;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.gallery-image {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-.gallery-close {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  border: none;
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
-  cursor: pointer;
-}
-
-.gallery-nav {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 44px;
-  height: 44px;
-  border-radius: 999px;
-  border: none;
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
-  font-size: 26px;
-  cursor: pointer;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.gallery-nav.left {
-  left: 10px;
-}
-.gallery-nav.right {
-  right: 10px;
-}
-
-.gallery-footer {
-  position: absolute;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
-  font-size: 12px;
-}
-
-.gallery-enter-active,
-.gallery-leave-active {
-  transition: opacity 0.18s ease;
-}
-.gallery-enter-from,
-.gallery-leave-to {
-  opacity: 0;
 }
 </style>
