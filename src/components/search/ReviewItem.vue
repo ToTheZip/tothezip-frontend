@@ -166,6 +166,7 @@ export default {
 
 <style scoped>
 .review-item {
+  width: 100%;
   display: flex;
   gap: 10px;
   border: 1px solid var(--tothezip-brown-01);
