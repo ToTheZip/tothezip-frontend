@@ -48,32 +48,32 @@
 
         <!-- 리뷰 리스트 -->
         <div v-else class="reviews-list">
-          <div v-for="r in reviews" :key="r.reviewId" class="review-item">
-            <img
-              class="avatar"
-              :src="resolveImg(r.profileImg)"
-              alt="profile"
-              @error="onImgError"
-            />
-
-            <div class="review-body">
-              <div class="review-top">
-                <div class="stars">
-                  <span
-                    v-for="i in 5"
-                    :key="i"
-                    class="star"
-                    :class="{ filled: i <= (Number(r.reviewRating) || 0) }"
-                  >
-                    ★
-                  </span>
+          <transition-group name="review" tag="div" class="reviews-list-inner">
+            <div v-for="r in reviews" :key="r.reviewId" class="review-item">
+              <img
+                class="avatar"
+                :src="resolveImg(r.profileImg)"
+                alt="profile"
+                @error="onImgError"
+              />
+              <div class="review-body">
+                <div class="review-top">
+                  <div class="stars">
+                    <span
+                      v-for="i in 5"
+                      :key="i"
+                      class="star"
+                      :class="{ filled: i <= (Number(r.reviewRating) || 0) }"
+                    >
+                      ★
+                    </span>
+                  </div>
+                  <span class="date">{{ formatDate(r.reviewDate) }}</span>
                 </div>
-                <span class="date">{{ formatDate(r.reviewDate) }}</span>
+                <div class="content">{{ r.reviewContent }}</div>
               </div>
-
-              <div class="content">{{ r.reviewContent }}</div>
             </div>
-          </div>
+          </transition-group>
 
           <button
             v-if="hasMore && !loadingMore"
@@ -94,6 +94,9 @@
 
   <!-- body로 빼서 z-index/overflow 영향 제거 -->
   <teleport to="body">
+    <transition name="toast">
+      <div v-if="showSuccessToast" class="success-toast">리뷰 등록 완료!</div>
+    </transition>
     <div
       v-if="showWritePopup"
       class="popup-backdrop"
@@ -188,6 +191,9 @@ export default {
       newContent: "",
       submitting: false,
       submitError: "",
+
+      showSuccessToast: false,
+      toastTimer: null,
     };
   },
   computed: {
@@ -215,7 +221,7 @@ export default {
     window.removeEventListener("resize", this.repositionPopover);
   },
   methods: {
-    // ✅ 버튼 옆에 붙이기: 위치 측정
+    // 버튼 옆에 붙이기: 위치 측정
     repositionPopover() {
       if (!this.showWritePopup) return;
 
@@ -328,15 +334,35 @@ export default {
 
       this.submitting = true;
       try {
-        // ✅ Authorization 헤더를 직접 넣지 않아도 됨(인터셉터가 자동)
-        await http.post("/reviews", {
+        const payload = {
           aptSeq: this.aptSeq,
           reviewRating: this.newRating,
           reviewContent: content,
-        });
+        };
+
+        // 등록
+        await http.post("/reviews", payload);
 
         this.closeWriteForm();
-        await this.fetchFirst();
+
+        const newItem = {
+          reviewId: `temp-${Date.now()}`,
+          profileImg: auth?.user?.profileImg || "",
+          reviewRating: payload.reviewRating,
+          reviewContent: payload.reviewContent,
+          reviewDate: new Date().toISOString(),
+        };
+
+        this.reviews.unshift(newItem);
+        this.totalCount += 1;
+
+        this.hasMore = this.totalCount > this.reviews.length;
+
+        this.showToast();
+
+        setTimeout(() => {
+          this.fetchFirst();
+        }, 450);
       } catch (e) {
         console.error(e);
         this.submitError =
@@ -358,6 +384,17 @@ export default {
       if (!v) return "";
       const d = new Date(v);
       return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+    },
+    showToast() {
+      this.showSuccessToast = true;
+
+      if (this.toastTimer) {
+        clearTimeout(this.toastTimer);
+      }
+
+      this.toastTimer = setTimeout(() => {
+        this.showSuccessToast = false;
+      }, 2800); // 1.5초 후 사라짐
     },
   },
 };
@@ -423,7 +460,6 @@ export default {
   cursor: pointer;
 }
 
-/* --- ✅ Popover --- */
 /* scoped라서 teleport된 DOM에 안 먹을 수 있음 → :deep()로 처리 */
 :deep(.popup-backdrop) {
   position: fixed;
@@ -542,5 +578,71 @@ export default {
   border-radius: 10px;
   border: 1px solid var(--tothezip-brown-01);
   background: #fff;
+}
+
+.success-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 36px;
+  transform: translateX(-50%);
+
+  background: rgba(255, 237, 219, 0.95);
+  color: #f08a3c;
+
+  padding: 10px 18px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 600;
+
+  z-index: 20000;
+
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+
+  border: none;
+  letter-spacing: -0.2px;
+
+  backdrop-filter: blur(2px);
+}
+
+/* transition */
+:deep(.toast-enter-active),
+:deep(.toast-leave-active) {
+  transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+:deep(.toast-enter-from) {
+  opacity: 0;
+  transform: translate(-50%, 14px) scale(0.96);
+}
+
+:deep(.toast-enter-to) {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+}
+
+:deep(.toast-leave-from) {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+}
+
+:deep(.toast-leave-to) {
+  opacity: 0;
+  transform: translate(-50%, -10px) scale(0.98);
+}
+
+:deep(.review-enter-active) {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease;
+}
+:deep(.review-enter-from) {
+  opacity: 0;
+  transform: translateX(18px);
+}
+:deep(.review-enter-to) {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+:deep(.review-move) {
+  transition: transform 0.28s ease;
 }
 </style>
