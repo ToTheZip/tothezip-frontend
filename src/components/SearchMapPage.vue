@@ -58,9 +58,9 @@
 
     <!-- 전체 리뷰 패널 -->
     <ReviewListPanel
-      v-if="selectedProperty && showReviewPanel"
-      :apt-seq="selectedProperty.aptSeq"
-      :building-name="selectedProperty.name"
+      v-if="reviewTarget && showReviewPanel"
+      :apt-seq="reviewTarget.aptSeq"
+      :building-name="reviewTarget.name"
       @close="closeReviewsPanel"
     />
   </div>
@@ -102,6 +102,7 @@ export default {
       loading: false,
       errorMessage: "",
       showReviewPanel: false,
+      reviewTarget: null,
 
       // 커스텀 마커 이미지 설정
       markerImageConfig: {
@@ -252,11 +253,15 @@ export default {
       return tags;
     },
 
-    openReviewsPanel() {
+    openReviewsPanel(payload) {
+      // payload: { aptSeq, name }
+      this.reviewTarget = payload;
       this.showReviewPanel = true;
     },
+
     closeReviewsPanel() {
       this.showReviewPanel = false;
+      this.reviewTarget = null;
     },
 
     closeDetailPanel() {

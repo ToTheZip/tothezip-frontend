@@ -1,5 +1,11 @@
 <template>
-  <div class="property-detail-panel">
+  <div
+    class="property-detail-panel"
+    @click.stop
+    @mousedown.stop
+    @pointerdown.stop
+    @touchstart.stop
+  >
     <div class="detail-panel-content">
       <div class="detail-top-bar">
         <button class="back-button" @click="$emit('close')">
@@ -130,12 +136,15 @@
           <button
             class="reviews-more-button"
             type="button"
-            @click="
+            @click.stop.prevent="
               $emit('open-reviews', {
                 aptSeq: property.aptSeq,
                 name: property.name,
               })
             "
+            @mousedown.stop
+            @pointerdown.stop
+            @touchstart.stop
             aria-label="전체 리뷰 보기"
           >
             <ChevronRight class="chevron-icon" />
