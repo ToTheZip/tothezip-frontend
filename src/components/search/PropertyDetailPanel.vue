@@ -194,7 +194,7 @@ export default {
   props: {
     property: { type: Object, required: true },
   },
-  emits: ["close", "open-all-reviews", "open-reviews"],
+  emits: ["close", "open-all-reviews", "open-reviews", "favorite-empty"],
   computed: {
     allImages() {
       // DTO의 images가 있으면 그걸 우선
@@ -255,22 +255,19 @@ export default {
         매물 찜 토글
       ========================= */
     async toggleListingLike(item) {
-      console.log("Toggling like for item:", item);
       const auth = useAuthStore();
-
       if (!auth.accessToken) {
         alert("로그인 후 이용해주세요");
         this.$router.push("/login");
         return;
       }
 
-      const has = !!item.isLiked;
-      item.isLiked = !has;
+      const hadLiked = !!item.isLiked;
+      item.isLiked = !hadLiked;
 
       try {
-        if (has) {
+        if (hadLiked) {
           // 찜 해제
-          console.log("Deleting favorite for item:", item.propertyId);
           await axios.delete(`${API_BASE}/favorite`, {
             params: {
               type: "매물",
@@ -297,13 +294,20 @@ export default {
             }
           );
         }
+
+        // 여기서 "이 건물에 찜된 매물이 남아있는지" 확인
+        const stillLiked = this.listings.some((l) => l.isLiked);
+
+        if (!stillLiked) {
+          // 이 aptSeq는 이제 찜 매물 0개
+          this.$emit("favorite-empty", this.property.aptSeq);
+        }
       } catch (e) {
         console.error(e);
-        item.isLiked = has; // 실패 시 롤백
+        item.isLiked = hadLiked; // 롤백
         alert("찜 처리에 실패했어요.");
       }
     },
-
     /* =========================
         매물 목록 + 찜 상태 로딩
       ========================= */
