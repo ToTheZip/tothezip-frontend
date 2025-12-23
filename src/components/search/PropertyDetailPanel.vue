@@ -103,14 +103,15 @@
                     formatListingPrice(item)
                   }}</span>
                   <button
-                    class="listing-like-button favorite-btn"
-                    :class="{ liked: item.isLiked }"
+                    class="listing-like-button"
                     type="button"
                     @click.stop="toggleListingLike(item)"
                     aria-label="찜"
                   >
-                    <HeartFill v-if="item.isLiked" class="icon" />
-                    <HeartOutline v-else class="icon" />
+                    <HeartOutline
+                      :filled="!!item.isLiked"
+                      class="listing-heart-icon"
+                    />
                   </button>
                 </div>
               </div>
@@ -196,23 +197,19 @@
 
 <script>
 import axios from "axios";
-import { useAuthStore } from "@/stores/auth";
-
 import ChevronLeft from "@/components/icons/ChevronLeft.vue";
+import ChevronRight from "@/components/icons/ChevronRight.vue";
 import HeartOutline from "@/components/icons/HeartOutline.vue";
-import HeartFill from "@/components/icons/HeartFill.vue";
-
 import MapPin from "@/components/icons/MapPin.vue";
 import Building from "@/components/icons/Building.vue";
-
-const API_BASE = import.meta.env.VITE_API_BASE;
+import defaultProfile from "@/assets/images/default_profile.png";
 
 export default {
   name: "PropertyDetailPanel",
   components: {
     ChevronLeft,
+    ChevronRight,
     HeartOutline,
-    HeartFill,
     MapPin,
     Building,
   },
@@ -222,32 +219,29 @@ export default {
   emits: ["close", "open-all-reviews", "open-reviews"],
   computed: {
     allImages() {
-      // DTO의 images가 있으면 그걸 우선
       const arr = Array.isArray(this.property?.images)
         ? this.property.images
         : [];
-
-      // fallback(예전 구조)
       const main = this.property?.image ? [this.property.image] : [];
       const subs = Array.isArray(this.property?.subImages)
         ? this.property.subImages
         : [];
-
       const merged = arr.length ? arr : [...main, ...subs];
-
-      // 중복 제거 + 빈값 제거
       return Array.from(new Set(merged)).filter(Boolean);
     },
     mainImage() {
       return this.allImages[0] || this.property?.image || "";
     },
-    // 화면에 보이는 서브 썸네일은 최대 4장
     subThumbs() {
-      return this.allImages.slice(1, 5); // 2~5번째(최대 4장)
+      return this.allImages.slice(1, 5);
     },
     remainingCount() {
-      // 전체가 5장 초과면 (main 1 + thumbs 4) 이후 개수
       return Math.max(0, this.allImages.length - 5);
+    },
+
+    // 리뷰 5개 이상이면 더보기 버튼
+    showReviewMore() {
+      return (this.reviewsTotal || 0) >= 5;
     },
   },
   data() {
@@ -255,12 +249,12 @@ export default {
       listings: [],
       listingsLoading: false,
       listingsError: "",
-    // reviews
+
+      // reviews
       reviews: [],
       reviewsTotalCount: 0,
       reviewsLoading: false,
       reviewsError: "",
-      
     };
   },
   watch: {
@@ -273,103 +267,32 @@ export default {
     },
   },
   methods: {
-    /* =========================
-        매물 찜 토글
-      ========================= */
-      async toggleListingLike(item) {
-        console.log("Toggling like for item:", item);
-        const auth = useAuthStore();
+    toggleListingLike(item) {
+      item.isLiked = !item.isLiked;
+    },
 
-        if (!auth.accessToken) {
-          alert("로그인 후 이용해주세요");
-          this.$router.push("/login");
-          return;
-        }
+    async fetchListings() {
+      const aptSeq = this.property?.aptSeq;
+      if (!aptSeq) return;
 
-        const has = !!item.isLiked;
-        item.isLiked = !has; // ✅ optimistic UI
+      this.listingsLoading = true;
+      this.listingsError = "";
+      this.listings = [];
 
-        try {
-          if (has) {
-            // 찜 해제
-            console.log("Deleting favorite for item:", item.propertyId);
-            await axios.delete(`${API_BASE}/favorite`, {
-              params: {
-                type: "매물",
-                referenceId: item.propertyId,
-              },
-              headers: {
-                Authorization: `Bearer ${auth.accessToken}`,
-              },
-              withCredentials: true,
-            });
-          } else {
-            // 찜 추가
-            await axios.post(
-              `${API_BASE}/favorite`,
-              {
-                type: "매물",
-                referenceId: item.propertyId,
-              },
-              {
-                headers: {
-                  Authorization: `Bearer ${auth.accessToken}`,
-                },
-                withCredentials: true,
-              }
-            );
-          }
-        } catch (e) {
-          console.error(e);
-          item.isLiked = has; // ❌ 실패 시 롤백
-          alert("찜 처리에 실패했어요.");
-        }
-      },
+      try {
+        const { data } = await axios.get(`/property/${aptSeq}/listings`);
+        this.listings = Array.isArray(data)
+          ? data.map((x) => ({ ...x, isLiked: false }))
+          : [];
+      } catch (e) {
+        console.error(e);
+        this.listingsError = "매물 정보를 불러오지 못했어요.";
+      } finally {
+        this.listingsLoading = false;
+      }
+    },
 
-      /* =========================
-        매물 목록 + 찜 상태 로딩
-      ========================= */
-      async fetchListings() {
-        const aptSeq = this.property?.aptSeq;
-        if (!aptSeq) return;
-
-        this.listingsLoading = true;
-        this.listingsError = "";
-        this.listings = [];
-
-        try {
-          const auth = useAuthStore();
-
-          const [listRes, favRes] = await Promise.all([
-            axios.get(`/property/${aptSeq}/listings`),
-            auth.accessToken
-              ? axios.get(`${API_BASE}/favorite`, {
-                  params: { type: "매물" },
-                  headers: {
-                    Authorization: `Bearer ${auth.accessToken}`,
-                  },
-                  withCredentials: true,
-                })
-              : Promise.resolve({ data: [] }),
-          ]);
-
-          const likedIds = new Set(favRes.data || []);
-
-          this.listings = (listRes.data || []).map((x) => ({
-            ...x,
-            isLiked: likedIds.has(x.propertyId),
-          }));
-                      console.log("favRes.data", favRes.data);
-
-        } catch (e) {
-          console.error(e);
-          this.listingsError = "매물 정보를 불러오지 못했어요.";
-        } finally {
-          this.listingsLoading = false;
-        }
-      },
-
-      // 리뷰 5개 프리뷰 가져오기
+    // 리뷰 5개 프리뷰 가져오기
     async fetchReviewsPreview() {
       const aptSeq = this.property?.aptSeq;
       if (!aptSeq) return;
@@ -380,7 +303,7 @@ export default {
       this.reviewsTotalCount = 0;
 
       try {
-        const { data } = await axios.get(`${API_BASE}/reviews/${aptSeq}`, {
+        const { data } = await axios.get(`/reviews/${aptSeq}`, {
           params: { limit: 2, offset: 0 },
         });
 
@@ -457,25 +380,8 @@ export default {
       return d.toISOString().slice(0, 10);
     },
   },
-  // 프로필 이미지 경로 처리 (서버가 /uploads/... 처럼 주는 케이스 대응)
-    profileSrc(path) {
-      if (!path) return "/images/default_profile.png"; // 너네 기본 이미지로 교체해도 됨
-      // 이미 http로 내려오면 그대로
-      if (String(path).startsWith("http")) return path;
-      return path; // "/uploads/xxx.png" 형태면 그대로 사용
-    },
-
-    formatDate(v) {
-      if (!v) return "";
-      // "2025-12-23 10:11:12" / ISO 둘 다 대충 처리
-      const s = String(v).replace(" ", "T");
-      const d = new Date(s);
-      if (Number.isNaN(d.getTime())) return String(v).slice(0, 10);
-      return d.toISOString().slice(0, 10);
-    },
 };
 </script>
-
 
 <style scoped>
 /* --- 기존 스타일 그대로 --- */
@@ -746,46 +652,6 @@ export default {
 .listing-heart-icon {
   color: var(--tothezip-brown-07);
 }
-
-.listing-like-button.favorite-btn {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  border: 1px solid var(--tothezip-beige-04);
-  background: #fff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.listing-like-button .icon {
-  width: 14px;
-  height: 14px;
-  color: var(--tothezip-brown-05);
-}
-
-/* hover */
-.listing-like-button:hover {
-  background: var(--tothezip-orange-01);
-  border-color: var(--tothezip-orange-03);
-}
-
-.listing-like-button:hover .icon {
-  transform: scale(1.15);
-}
-
-/* liked 상태 */
-.listing-like-button.liked {
-  background: var(--tothezip-orange-04);
-  border-color: var(--tothezip-orange-04);
-}
-
-.listing-like-button.liked .icon {
-  color: #ffffff;
-}
-
 
 /* 리뷰 헤더(제목 + 화살표) */
 .section-header {

@@ -215,6 +215,7 @@ export default {
     window.removeEventListener("resize", this.repositionPopover);
   },
   methods: {
+    // ✅ 버튼 옆에 붙이기: 위치 측정
     repositionPopover() {
       if (!this.showWritePopup) return;
 
@@ -327,7 +328,7 @@ export default {
 
       this.submitting = true;
       try {
-        // Authorization 헤더를 직접 넣지 않아도 됨(인터셉터가 자동)
+        // ✅ Authorization 헤더를 직접 넣지 않아도 됨(인터셉터가 자동)
         await http.post("/reviews", {
           aptSeq: this.aptSeq,
           reviewRating: this.newRating,
@@ -422,7 +423,7 @@ export default {
   cursor: pointer;
 }
 
-/* --- Popover --- */
+/* --- ✅ Popover --- */
 /* scoped라서 teleport된 DOM에 안 먹을 수 있음 → :deep()로 처리 */
 :deep(.popup-backdrop) {
   position: fixed;
