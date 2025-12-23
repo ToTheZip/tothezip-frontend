@@ -8,7 +8,8 @@
           >, 추천 매물을 준비했어요
         </template>
         <template v-else>
-          <span class="highlight">추천 매물</span>을 준비했어요.
+          실시간
+          <span class="highlight">인기 매물</span>을 추천할게요.
         </template>
       </div>
 
