@@ -77,9 +77,16 @@
       v-if="selectedProperty && !showReviewPanel"
       :property="selectedProperty"
       @close="closeDetailPanel"
-      @toggle-like="toggleLike"
+      @favorite-empty="removeFavoriteBuilding"
       @open-reviews="openReviewsPanel"
     />
+    <!-- <PropertyDetailPanel
+      v-if="selectedProperty && !showReviewPanel"
+      :property="selectedProperty"
+      @close="closeDetailPanel"
+      @toggle-like="toggleLike"
+      @open-reviews="openReviewsPanel"
+    /> -->
 
     <ReviewListPanel
       v-if="reviewTarget && showReviewPanel"
@@ -175,6 +182,27 @@ export default {
     // ---------------------------
     // INIT (entry 결정)
     // ---------------------------
+    removeFavoriteBuilding(aptSeq) {
+      // 1️⃣ properties 리스트에서 제거
+      this.properties = this.properties.filter(
+        (p) => String(p.aptSeq) !== String(aptSeq)
+      );
+
+      // 2️⃣ 선택 중이던 건물이면 상세 패널 닫기
+      if (String(this.selectedAptSeq) === String(aptSeq)) {
+        this.selectedProperty = null;
+        this.selectedAptSeq = null;
+        this.showReviewPanel = false;
+      }
+
+      // 3️⃣ 리스트가 비었으면 메시지
+      if (this.properties.length === 0) {
+        this.errorMessage = "찜한 매물이 없습니다.";
+      }
+
+      // 4️⃣ 지도 중심 재조정
+      this.moveCenterToFirst();
+    },
     async initByRoute() {
       const mode = String(this.$route.query.mode || "all").toLowerCase();
       const open = this.$route.query.open
