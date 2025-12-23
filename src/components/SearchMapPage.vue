@@ -57,7 +57,7 @@
       </div>
 
       <!-- LIST -->
-      <div class="results-list">
+      <div class="results-list" ref="listRef">
         <div v-if="properties.length === 0 && !loading" class="no-results">
           {{ errorMessage || "검색 결과가 없습니다." }}
         </div>
@@ -66,6 +66,7 @@
           v-for="property in properties"
           :key="property.id"
           :property="property"
+          :selected="String(property.aptSeq) === String(selectedAptSeq)"
           @click="selectProperty(property)"
         />
       </div>
@@ -134,6 +135,8 @@ export default {
 
       showReviewPanel: false,
       reviewTarget: null,
+
+      selectedAptSeq: null,
 
       markerImageConfig: {
         imageSrc: loginDozip,
@@ -603,14 +606,37 @@ export default {
       this.selectedProperty = null;
       this.showReviewPanel = false;
     },
-    selectProperty(property) {
+    selectProperty(property, { fromMap = false } = {}) {
       this.selectedProperty = property;
+      this.selectedAptSeq = property?.aptSeq ?? null;
       this.showReviewPanel = false;
 
       if (property?.latitude && property?.longitude) {
         this.center = { lat: property.latitude, lng: property.longitude };
       }
+
+      // 마커 클릭/카드 클릭 모두 리스트를 해당 카드로 스크롤
+      this.$nextTick(() => {
+        this.scrollToSelectedCard();
+      });
     },
+    scrollToSelectedCard() {
+      const listEl = this.$refs.listRef;
+      if (!listEl || !this.selectedAptSeq) return;
+
+      // PropertyCard 최상단에 data-aptseq를 심어둘 거라서 그걸로 찾음
+      const cardEl = listEl.querySelector(
+        `[data-aptseq="${String(this.selectedAptSeq)}"]`
+      );
+      if (!cardEl) return;
+
+      // 리스트 컨테이너 안에서만 부드럽게 이동
+      cardEl.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    },
+
     toggleLike() {
       if (this.selectedProperty)
         this.selectedProperty.isLiked = !this.selectedProperty.isLiked;
