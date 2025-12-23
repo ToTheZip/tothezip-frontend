@@ -103,15 +103,14 @@
                     formatListingPrice(item)
                   }}</span>
                   <button
-                    class="listing-like-button"
+                    class="listing-like-button favorite-btn"
+                    :class="{ liked: item.isLiked }"
                     type="button"
                     @click.stop="toggleListingLike(item)"
                     aria-label="찜"
                   >
-                    <HeartOutline
-                      :filled="!!item.isLiked"
-                      class="listing-heart-icon"
-                    />
+                    <HeartFill v-if="item.isLiked" class="icon" />
+                    <HeartOutline v-else class="icon" />
                   </button>
                 </div>
               </div>
@@ -203,6 +202,10 @@ import HeartOutline from "@/components/icons/HeartOutline.vue";
 import MapPin from "@/components/icons/MapPin.vue";
 import Building from "@/components/icons/Building.vue";
 import defaultProfile from "@/assets/images/default_profile.png";
+import { useAuthStore } from "@/stores/auth";
+import HeartFill from "@/components/icons/HeartFill.vue";
+
+const API_BASE = import.meta.env.VITE_API_BASE;
 
 export default {
   name: "PropertyDetailPanel",
@@ -210,6 +213,7 @@ export default {
     ChevronLeft,
     ChevronRight,
     HeartOutline,
+    HeartFill,
     MapPin,
     Building,
   },
@@ -219,19 +223,26 @@ export default {
   emits: ["close", "open-all-reviews", "open-reviews"],
   computed: {
     allImages() {
+      // DTO의 images가 있으면 그걸 우선
       const arr = Array.isArray(this.property?.images)
         ? this.property.images
         : [];
+
+      // fallback(예전 구조)
       const main = this.property?.image ? [this.property.image] : [];
       const subs = Array.isArray(this.property?.subImages)
         ? this.property.subImages
         : [];
       const merged = arr.length ? arr : [...main, ...subs];
+
+      // 중복 제거 + 빈값 제거
       return Array.from(new Set(merged)).filter(Boolean);
     },
     mainImage() {
       return this.allImages[0] || this.property?.image || "";
     },
+
+    // 화면에 보이는 서브 썸네일은 최대 4장
     subThumbs() {
       return this.allImages.slice(1, 5);
     },
@@ -267,23 +278,85 @@ export default {
     },
   },
   methods: {
-    toggleListingLike(item) {
-      item.isLiked = !item.isLiked;
+    /* =========================
+        매물 찜 토글
+      ========================= */
+    async toggleListingLike(item) {
+      console.log("Toggling like for item:", item);
+      const auth = useAuthStore();
+      if (!auth.accessToken) {
+        alert("로그인 후 이용해주세요");
+        this.$router.push("/login");
+        return;
+      }
+      const has = !!item.isLiked;
+      item.isLiked = !has; // ✅ optimistic UI
+      try {
+        if (has) {
+          // 찜 해제
+          console.log("Deleting favorite for item:", item.propertyId);
+          await axios.delete(`${API_BASE}/favorite`, {
+            params: {
+              type: "매물",
+              referenceId: item.propertyId,
+            },
+            headers: {
+              Authorization: `Bearer ${auth.accessToken}`,
+            },
+            withCredentials: true,
+          });
+        } else {
+          // 찜 추가
+          await axios.post(
+            `${API_BASE}/favorite`,
+            {
+              type: "매물",
+              referenceId: item.propertyId,
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${auth.accessToken}`,
+              },
+              withCredentials: true,
+            }
+          );
+        }
+      } catch (e) {
+        console.error(e);
+        item.isLiked = has; // ❌ 실패 시 롤백
+        alert("찜 처리에 실패했어요.");
+      }
     },
 
+    /* =========================
+        매물 목록 + 찜 상태 로딩
+      ========================= */
     async fetchListings() {
       const aptSeq = this.property?.aptSeq;
       if (!aptSeq) return;
-
       this.listingsLoading = true;
       this.listingsError = "";
       this.listings = [];
-
       try {
-        const { data } = await axios.get(`/property/${aptSeq}/listings`);
-        this.listings = Array.isArray(data)
-          ? data.map((x) => ({ ...x, isLiked: false }))
-          : [];
+        const auth = useAuthStore();
+        const [listRes, favRes] = await Promise.all([
+          axios.get(`/property/${aptSeq}/listings`),
+          auth.accessToken
+            ? axios.get(`${API_BASE}/favorite`, {
+                params: { type: "매물" },
+                headers: {
+                  Authorization: `Bearer ${auth.accessToken}`,
+                },
+                withCredentials: true,
+              })
+            : Promise.resolve({ data: [] }),
+        ]);
+        const likedIds = new Set(favRes.data || []);
+        this.listings = (listRes.data || []).map((x) => ({
+          ...x,
+          isLiked: likedIds.has(x.propertyId),
+        }));
+        console.log("favRes.data", favRes.data);
       } catch (e) {
         console.error(e);
         this.listingsError = "매물 정보를 불러오지 못했어요.";
@@ -303,7 +376,7 @@ export default {
       this.reviewsTotalCount = 0;
 
       try {
-        const { data } = await axios.get(`/reviews/${aptSeq}`, {
+        const { data } = await axios.get(`${API_BASE}/reviews/${aptSeq}`, {
           params: { limit: 2, offset: 0 },
         });
 
@@ -384,7 +457,40 @@ export default {
 </script>
 
 <style scoped>
-/* --- 기존 스타일 그대로 --- */
+.listing-like-button.favorite-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--tothezip-beige-04);
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.listing-like-button .icon {
+  width: 14px;
+  height: 14px;
+  color: var(--tothezip-brown-05);
+}
+/* hover */
+.listing-like-button:hover {
+  background: var(--tothezip-orange-01);
+  border-color: var(--tothezip-orange-03);
+}
+.listing-like-button:hover .icon {
+  transform: scale(1.15);
+}
+/* liked 상태 */
+.listing-like-button.liked {
+  background: var(--tothezip-orange-04);
+  border-color: var(--tothezip-orange-04);
+}
+.listing-like-button.liked .icon {
+  color: #ffffff;
+}
+
 .property-detail-panel {
   position: absolute;
   left: 277px;

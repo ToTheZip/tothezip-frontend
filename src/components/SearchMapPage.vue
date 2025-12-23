@@ -71,6 +71,8 @@ import PropertyDetailPanel from "@/components/search/PropertyDetailPanel.vue";
 import ReviewListPanel from "@/components/search/ReviewListPanel.vue";
 import loginDozip from "@/assets/images/login_dozip.png";
 
+const API_BASE = import.meta.env.VITE_API_BASE;
+
 export default {
   name: "SearchMapPage",
   components: {
