@@ -39,7 +39,9 @@
         <template v-else>
           <div class="nav-menu">
             <div class="greeting" v-if="auth.user?.userName">
-              <span class="user-name" @click="goMyPage">{{ auth.user.userName }}</span>
+              <span class="user-name" @click="goMyPage">{{
+                auth.user.userName
+              }}</span>
               <span class="hello-text">님, 안녕하세요!</span>
             </div>
 
@@ -60,8 +62,13 @@
                 />
               </svg>
             </button>
-  
-            <button class="icon-button" title="마이 캘린더" data-favcal-toggle="1" @click.stop.prevent="toggleCalendar">
+
+            <button
+              class="icon-button"
+              title="마이 캘린더"
+              data-favcal-toggle="1"
+              @click.stop.prevent="toggleCalendar"
+            >
               <svg
                 width="24"
                 height="24"
@@ -99,15 +106,13 @@
                 />
               </svg>
             </button>
-  
+
             <div class="profile-button" v-if="isLoggedIn" @click="goMyPage">
-              <img
-                :src="profileImg"
-                alt="Profile"
-                class="profile-image"
-              />
+              <img :src="profileImg" alt="Profile" class="profile-image" />
             </div>
-            <router-link to="/" class="nav-link" @click="logout">로그아웃</router-link>
+            <router-link to="/" class="nav-link" @click="logout"
+              >로그아웃</router-link
+            >
           </div>
         </template>
       </div>
@@ -173,7 +178,7 @@ export default {
         await logoutApi(); // 서버 refresh 쿠키 제거
       } catch (e) {
         console.error("[LOGOUT] api failed:", e);
-      } finally{
+      } finally {
         auth.clearAuth();
         localStorage.setItem("manualLogout", "1");
         this.$router.push("/");
@@ -386,7 +391,6 @@ export default {
   color: var(--tothezip-beige-08);
   font-weight: 500;
 }
-
 
 /* 반응형: 좁아지면 검색바 폭 줄이고, 더 좁으면 숨김 */
 @media (max-width: 900px) {
