@@ -1,5 +1,11 @@
 <template>
-  <div class="property-detail-panel">
+  <div
+    class="property-detail-panel"
+    @click.stop
+    @mousedown.stop
+    @pointerdown.stop
+    @touchstart.stop
+  >
     <div class="detail-panel-content">
       <div class="detail-top-bar">
         <button class="back-button" @click="$emit('close')">
@@ -130,12 +136,15 @@
           <button
             class="reviews-more-button"
             type="button"
-            @click="
+            @click.stop.prevent="
               $emit('open-reviews', {
                 aptSeq: property.aptSeq,
                 name: property.name,
               })
             "
+            @mousedown.stop
+            @pointerdown.stop
+            @touchstart.stop
             aria-label="전체 리뷰 보기"
           >
             <ChevronRight class="chevron-icon" />
@@ -187,14 +196,14 @@
 
 <script>
 import axios from "axios";
-import { useAuthStore } from "@/stores/auth";
-
 import ChevronLeft from "@/components/icons/ChevronLeft.vue";
+import ChevronRight from "@/components/icons/ChevronRight.vue";
 import HeartOutline from "@/components/icons/HeartOutline.vue";
-import HeartFill from "@/components/icons/HeartFill.vue";
-
 import MapPin from "@/components/icons/MapPin.vue";
 import Building from "@/components/icons/Building.vue";
+import defaultProfile from "@/assets/images/default_profile.png";
+import { useAuthStore } from "@/stores/auth";
+import HeartFill from "@/components/icons/HeartFill.vue";
 
 const API_BASE = import.meta.env.VITE_API_BASE;
 
@@ -202,6 +211,7 @@ export default {
   name: "PropertyDetailPanel",
   components: {
     ChevronLeft,
+    ChevronRight,
     HeartOutline,
     HeartFill,
     MapPin,
@@ -223,7 +233,6 @@ export default {
       const subs = Array.isArray(this.property?.subImages)
         ? this.property.subImages
         : [];
-
       const merged = arr.length ? arr : [...main, ...subs];
 
       // 중복 제거 + 빈값 제거
@@ -232,13 +241,18 @@ export default {
     mainImage() {
       return this.allImages[0] || this.property?.image || "";
     },
+
     // 화면에 보이는 서브 썸네일은 최대 4장
     subThumbs() {
-      return this.allImages.slice(1, 5); // 2~5번째(최대 4장)
+      return this.allImages.slice(1, 5);
     },
     remainingCount() {
-      // 전체가 5장 초과면 (main 1 + thumbs 4) 이후 개수
       return Math.max(0, this.allImages.length - 5);
+    },
+
+    // 리뷰 5개 이상이면 더보기 버튼
+    showReviewMore() {
+      return (this.reviewsTotal || 0) >= 5;
     },
   },
   data() {
@@ -246,6 +260,7 @@ export default {
       listings: [],
       listingsLoading: false,
       listingsError: "",
+      
       // reviews
       reviews: [],
       reviewsTotalCount: 0,
@@ -277,7 +292,7 @@ export default {
       }
 
       const has = !!item.isLiked;
-      item.isLiked = !has; // ✅ optimistic UI
+      item.isLiked = !has;
 
       try {
         if (has) {
@@ -311,7 +326,7 @@ export default {
         }
       } catch (e) {
         console.error(e);
-        item.isLiked = has; // ❌ 실패 시 롤백
+        item.isLiked = has; // 실패 시 롤백
         alert("찜 처리에 실패했어요.");
       }
     },
@@ -446,6 +461,7 @@ export default {
       return d.toISOString().slice(0, 10);
     },
   },
+
   // 프로필 이미지 경로 처리 (서버가 /uploads/... 처럼 주는 케이스 대응)
   profileSrc(path) {
     if (!path) return "/images/default_profile.png"; // 너네 기본 이미지로 교체해도 됨
@@ -466,7 +482,40 @@ export default {
 </script>
 
 <style scoped>
-/* --- 기존 스타일 그대로 --- */
+.listing-like-button.favorite-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--tothezip-beige-04);
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.listing-like-button .icon {
+  width: 14px;
+  height: 14px;
+  color: var(--tothezip-brown-05);
+}
+/* hover */
+.listing-like-button:hover {
+  background: var(--tothezip-orange-01);
+  border-color: var(--tothezip-orange-03);
+}
+.listing-like-button:hover .icon {
+  transform: scale(1.15);
+}
+/* liked 상태 */
+.listing-like-button.liked {
+  background: var(--tothezip-orange-04);
+  border-color: var(--tothezip-orange-04);
+}
+.listing-like-button.liked .icon {
+  color: #ffffff;
+}
+
 .property-detail-panel {
   position: absolute;
   left: 277px;

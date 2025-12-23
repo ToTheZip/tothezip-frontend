@@ -2,8 +2,7 @@
   <div class="search-map-page">
     <div class="map-container">
       <KakaoMap
-        width="100%"
-        height="100%"
+        style="width: 100%; height: 100%"
         :lat="center.lat"
         :lng="center.lng"
         :level="level"
@@ -12,7 +11,6 @@
         :zoomable="true"
         @onLoadKakaoMap="onLoadKakaoMap"
       >
-        <!-- 유효한 좌표가 있는 매물만 마커로 표시 -->
         <KakaoMapMarker
           v-for="prop in validProperties"
           :key="prop.id"
@@ -44,7 +42,6 @@
         </div>
 
         <PropertyCard
-          v-else
           v-for="property in properties"
           :key="property.id"
           :property="property"
@@ -64,9 +61,9 @@
 
     <!-- 전체 리뷰 패널 -->
     <ReviewListPanel
-      v-if="selectedProperty && showReviewPanel"
-      :apt-seq="selectedProperty.aptSeq"
-      :building-name="selectedProperty.name"
+      v-if="reviewTarget && showReviewPanel"
+      :apt-seq="reviewTarget.aptSeq"
+      :building-name="reviewTarget.name"
       @close="closeReviewsPanel"
     />
   </div>
@@ -82,7 +79,6 @@ import FilterTag from "@/components/search/FilterTag.vue";
 import PropertyCard from "@/components/search/PropertyCard.vue";
 import PropertyDetailPanel from "@/components/search/PropertyDetailPanel.vue";
 import ReviewListPanel from "@/components/search/ReviewListPanel.vue";
-
 import loginDozip from "@/assets/images/login_dozip.png";
 
 const API_BASE = import.meta.env.VITE_API_BASE;
@@ -111,6 +107,7 @@ export default {
       loading: false,
       errorMessage: "",
       showReviewPanel: false,
+      reviewTarget: null,
 
       // 커스텀 마커 이미지 설정
       markerImageConfig: {
@@ -120,6 +117,9 @@ export default {
         imageOption: {}, // 기본값 사용
       },
     };
+  },
+  mounted() {
+    this.fetchSearchResults();
   },
   computed: {
     ui() {
@@ -160,7 +160,7 @@ export default {
 
       if (mode === "reco") {
         this.ui.setSearchMode("RECO");
-        this.fetchRecoProperties(); // ✅ 추천 목록 로드
+        this.fetchRecoProperties(); // 추천 목록 로드
         return;
       }
 
@@ -190,7 +190,7 @@ export default {
           return;
         }
 
-        // ✅ 상단 태그(사용자 관심/선호도 기반)
+        // 상단 태그(사용자 관심/선호도 기반)
         // regionNames + facilityTags를 filterTags로 구성
         const tags = [];
         let id = 1;
@@ -205,7 +205,7 @@ export default {
 
         this.filterTags = tags;
 
-        // ✅ 추천 aptSeqList -> 각각 상세 조회로 변환
+        // 추천 aptSeqList -> 각각 상세 조회로 변환
         const responses = await Promise.all(
           reco.aptSeqList.map((aptSeq) =>
             axios.post(`${API_BASE}/property/search`, {
@@ -245,10 +245,10 @@ export default {
           };
         });
 
-        // ✅ open 파라미터 있으면 상세 자동 오픈
+        // open 파라미터 있으면 상세 자동 오픈
         this.openByQuery();
 
-        // ✅ 지도 센터도 open 매물 기준으로 맞추기(없으면 첫 매물)
+        // 지도 센터도 open 매물 기준으로 맞추기(없으면 첫 매물)
         const openSeq = this.$route.query.open;
         const target =
           (openSeq &&
@@ -276,7 +276,7 @@ export default {
         (p) => String(p.aptSeq) === String(openSeq)
       );
       if (found) {
-        this.selectProperty(found); // ✅ 기존 상세 오픈 로직 재사용
+        this.selectProperty(found); // 기존 상세 오픈 로직 재사용
       }
     },
     async fetchFavoriteProperties() {
@@ -546,11 +546,15 @@ export default {
       return tags;
     },
 
-    openReviewsPanel() {
+    openReviewsPanel(payload) {
+      // payload: { aptSeq, name }
+      this.reviewTarget = payload;
       this.showReviewPanel = true;
     },
+
     closeReviewsPanel() {
       this.showReviewPanel = false;
+      this.reviewTarget = null;
     },
 
     closeDetailPanel() {
@@ -574,13 +578,206 @@ export default {
         this.selectedProperty.isLiked = !this.selectedProperty.isLiked;
     },
   },
+  methods: {
+    onLoadKakaoMap(map) {
+      this.mapRef = map;
+      map.setDraggable(true);
+      map.setZoomable(true);
+    },
+
+    async fetchSearchResults() {
+      this.loading = true;
+      this.errorMessage = "";
+      this.selectedProperty = null;
+
+      try {
+        const raw = sessionStorage.getItem("tothezip_search");
+        const searchData = raw ? JSON.parse(raw) : null;
+
+        if (!searchData) {
+          this.properties = [];
+          this.filterTags = [];
+          this.errorMessage =
+            "검색 조건이 없습니다. 검색바에서 다시 검색해주세요.";
+          return;
+        }
+
+        this.filterTags = this.makeFilterTags(searchData);
+        const req = this.makeRequestBody(searchData);
+
+        const { data } = await axios.post("/property/search", req);
+
+        this.properties = (data || []).map((b) => {
+          const allImages = Array.isArray(b.images)
+            ? b.images.filter(Boolean)
+            : [];
+          const main = b.imageUrl || allImages[0] || "";
+          const subs =
+            allImages.length > 0 ? allImages.filter((x) => x !== main) : [];
+
+          return {
+            // 공통
+            id: b.aptSeq,
+            aptSeq: b.aptSeq,
+
+            name: b.aptName,
+            address: b.roadAddress,
+            rating: b.propertyRating,
+            tags: b.tags || [],
+            buildYear: b.buildYear,
+            isLiked: false,
+
+            // 카드용 대표 이미지
+            image: main,
+
+            images: allImages.length ? allImages : main ? [main] : [],
+
+            subImages: subs.slice(0, 4),
+            totalImages: allImages.length ? allImages.length : main ? 1 : 0,
+
+            minDealType: b.minDealType || "",
+            minPrice: b.minPrice ?? null,
+            minDeposit: b.minDeposit ?? null,
+
+            // 지도 이동용
+            latitude: b.latitude,
+            longitude: b.longitude,
+          };
+        });
+
+        if (this.properties.length > 0) {
+          const first = this.properties[0];
+          if (first?.latitude && first?.longitude) {
+            this.center = { lat: first.latitude, lng: first.longitude };
+          }
+        }
+      } catch (e) {
+        console.error(e);
+        this.errorMessage = "검색 중 오류가 발생했습니다.";
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    makeRequestBody(searchData) {
+      const opt = searchData.options || {};
+      const prop = searchData.property || null;
+
+      return {
+        sido: searchData.sido || "",
+        gugun: searchData.gugun || "",
+        dong: searchData.dong || "",
+
+        // 아파트 선택했으면 aptSeq로 정확하게 검색
+        aptSeq: prop?.aptSeq || "",
+        aptName: prop?.aptName || "",
+
+        nearSubway: !!opt.nearSubway,
+        nearSchool: !!opt.nearSchool,
+        nearHospital: !!opt.nearHospital,
+        nearCulture: !!opt.nearCulture,
+        dealType: opt.dealType || [],
+
+        depositMin: opt.depositMin,
+        depositMax: opt.depositMax,
+        monthlyRentMin: opt.monthlyRentMin,
+        monthlyRentMax: opt.monthlyRentMax,
+        jeonseMin: opt.jeonseMin,
+        jeonseMax: opt.jeonseMax,
+        buyMin: opt.buyMin,
+        buyMax: opt.buyMax,
+
+        areaMin: opt.areaMin,
+        areaMax: opt.areaMax,
+        floorMin: opt.floorMin,
+        floorMax: opt.floorMax,
+        buildYearMin: opt.buildYearMin,
+        buildYearMax: opt.buildYearMax,
+        ratingMin: opt.ratingMin,
+        ratingMax: opt.ratingMax,
+
+        limit: 50,
+        offset: 0,
+      };
+    },
+
+    makeFilterTags(searchData) {
+      const opt = searchData.options || {};
+      const tags = [];
+      let id = 1;
+
+      if (searchData.location)
+        tags.push({ id: id++, label: searchData.location });
+
+      if (opt.nearSubway) tags.push({ id: id++, label: "역세권" });
+      if (opt.nearSchool) tags.push({ id: id++, label: "학세권" });
+      if (opt.nearHospital) tags.push({ id: id++, label: "병세권" });
+      if (opt.nearCulture) tags.push({ id: id++, label: "문세권" });
+
+      (opt.dealType || []).forEach((d) => tags.push({ id: id++, label: d }));
+
+      if (opt.areaMin != null || opt.areaMax != null)
+        tags.push({
+          id: id++,
+          label: `${opt.areaMin ?? 0}평~${opt.areaMax ?? "∞"}평`,
+        });
+
+      if (opt.floorMin != null || opt.floorMax != null)
+        tags.push({
+          id: id++,
+          label: `${opt.floorMin ?? 0}층~${opt.floorMax ?? "∞"}층`,
+        });
+
+      if (opt.buildYearMin != null || opt.buildYearMax != null)
+        tags.push({
+          id: id++,
+          label: `${opt.buildYearMin ?? 0}년~${opt.buildYearMax ?? "현재"}년`,
+        });
+
+      // 선택된 아파트 표시(선택형)
+      if (searchData.property?.aptName)
+        tags.push({ id: id++, label: searchData.property.aptName });
+
+      return tags;
+    },
+
+    openReviewsPanel(payload) {
+      // payload: { aptSeq, name }
+      this.reviewTarget = payload;
+      this.showReviewPanel = true;
+    },
+
+    closeReviewsPanel() {
+      this.showReviewPanel = false;
+      this.reviewTarget = null;
+    },
+
+    closeDetailPanel() {
+      this.selectedProperty = null;
+      this.showReviewPanel = false; // 같이 초기화
+    },
+
+    selectProperty(property) {
+      this.selectedProperty = property;
+      this.showReviewPanel = false; // 새 건물 선택 시 상세부터
+
+      if (property?.latitude && property?.longitude) {
+        this.center = { lat: property.latitude, lng: property.longitude };
+      }
+    },
+
+    toggleLike() {
+      if (this.selectedProperty)
+        this.selectedProperty.isLiked = !this.selectedProperty.isLiked;
+    },
+  },
 };
 </script>
 
 <style scoped>
 .search-map-page {
   width: 100%;
-  height: 100vh; /* 화면 전체 높이 사용 */
+  height: 100%;
   position: relative;
   overflow: hidden;
 }
