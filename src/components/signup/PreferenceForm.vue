@@ -1,8 +1,24 @@
 <template>
   <div class="pref-card">
     <div class="pref-header">
-      <button class="back-btn" type="button" @click="$emit('back')" aria-label="이전">
-        ←
+      <button
+        class="back-btn"
+        type="button"
+        @click="$emit('back')"
+        aria-label="이전"
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
       </button>
       <h2>관심사항 설정</h2>
     </div>
@@ -15,8 +31,14 @@
 
           <div class="row-2">
             <div class="select-wrap half">
-              <select class="select" v-model="local.sido" @change="onChangeSido">
-                <option value="">{{ loadingSido ? "불러오는 중..." : "시 선택" }}</option>
+              <select
+                class="select"
+                v-model="local.sido"
+                @change="onChangeSido"
+              >
+                <option value="">
+                  {{ loadingSido ? "불러오는 중..." : "시 선택" }}
+                </option>
                 <option v-for="s in sidos" :key="s" :value="s">
                   {{ s }}
                 </option>
@@ -34,8 +56,8 @@
                     !local.sido
                       ? "시를 먼저 선택"
                       : loadingGugun
-                        ? "불러오는 중..."
-                        : "구 선택"
+                      ? "불러오는 중..."
+                      : "구 선택"
                   }}
                 </option>
                 <option v-for="g in guguns" :key="g" :value="g">
@@ -80,10 +102,7 @@
 
             <div class="dual-range">
               <div class="range-track"></div>
-              <div
-                class="range-progress"
-                :style="floorProgressStyle"
-              ></div>
+              <div class="range-progress" :style="floorProgressStyle"></div>
 
               <input
                 type="range"
@@ -105,10 +124,7 @@
               />
             </div>
           </div>
-
-          <div class="hint">(층수 입력)</div>
         </div>
-
 
         <!-- 희망 평수 -->
         <div class="block">
@@ -122,10 +138,7 @@
 
             <div class="dual-range">
               <div class="range-track"></div>
-              <div
-                class="range-progress"
-                :style="areaProgressStyle"
-              ></div>
+              <div class="range-progress" :style="areaProgressStyle"></div>
 
               <input
                 type="range"
@@ -150,7 +163,6 @@
 
           <div class="hint">(평수 입력, 1평 ≈ 3.3㎡)</div>
         </div>
-
 
         <!-- 완료 버튼 -->
         <div class="actions">
@@ -192,17 +204,17 @@ export default {
       AREA_MAX: 300,
       AREA_STEP: 1,
 
-      // ✅ 처음 한 번만 prop 값을 local로 복사
       local: {
         sido: this.modelValue.sido ?? "",
         gugun: this.modelValue.gugun ?? "",
-        tagIds: Array.isArray(this.modelValue.tagIds) ? [...this.modelValue.tagIds] : [],
-        minFloor: this.modelValue.minFloor ?? 0,
-        maxFloor: this.modelValue.maxFloor ?? 50,
-        minArea: this.modelValue.minArea ?? 0,
-        maxArea: this.modelValue.maxArea ?? 100,
+        tagIds: Array.isArray(this.modelValue.tagIds)
+          ? [...this.modelValue.tagIds]
+          : [],
+        minFloor: this.modelValue.minFloor ?? 1,
+        maxFloor: this.modelValue.maxFloor ?? 100,
+        minArea: this.modelValue.minArea ?? 1,
+        maxArea: this.modelValue.maxArea ?? 300,
       },
-
     };
   },
 
@@ -210,21 +222,22 @@ export default {
     floorProgressStyle() {
       const min = Number(this.local.minFloor ?? 0);
       const max = Number(this.local.maxFloor ?? 0);
-      const left = ((min - this.FLOOR_MIN) / (this.FLOOR_MAX - this.FLOOR_MIN)) * 100;
+      const left =
+        ((min - this.FLOOR_MIN) / (this.FLOOR_MAX - this.FLOOR_MIN)) * 100;
       const width = ((max - min) / (this.FLOOR_MAX - this.FLOOR_MIN)) * 100;
       return { left: `${left}%`, width: `${width}%` };
     },
     areaProgressStyle() {
       const min = Number(this.local.minArea ?? 0);
       const max = Number(this.local.maxArea ?? 0);
-      const left = ((min - this.AREA_MIN) / (this.AREA_MAX - this.AREA_MIN)) * 100;
+      const left =
+        ((min - this.AREA_MIN) / (this.AREA_MAX - this.AREA_MIN)) * 100;
       const width = ((max - min) / (this.AREA_MAX - this.AREA_MIN)) * 100;
       return { left: `${left}%`, width: `${width}%` };
     },
   },
 
   watch: {
-    // ✅ local -> 부모로만 올려보냄 (modelValue -> local watch 제거!)
     local: {
       deep: true,
       handler(v) {
@@ -247,7 +260,6 @@ export default {
   },
 
   methods: {
-    // 응답이 ["서울특별시"...] 또는 [{sidoName:"서울특별시"}...] 여도 처리
     normalizeToStringList(list, keys = []) {
       if (!Array.isArray(list)) return [];
       return list
@@ -316,73 +328,68 @@ export default {
     },
 
     async loadTags() {
-        this.loadingTags = true;
-        this.errTags = "";
+      this.loadingTags = true;
+      this.errTags = "";
 
-        // ✅ (fallback) 태그 이름 -> DB tag_id 매핑
-        const NAME_TO_ID = {
-            "역세권": 1,
-            "병세권": 2,
-            "학세권": 3,
-            "문세권": 4,
-        };
+      const NAME_TO_ID = {
+        역세권: 1,
+        병세권: 2,
+        학세권: 3,
+        문세권: 4,
+      };
 
-        try {
-            const r = await fetch(
-            `${API_BASE}/property/tags?type=${encodeURIComponent("주변시설")}`,
-            { method: "GET", credentials: "include" }
-            );
+      try {
+        const r = await fetch(
+          `${API_BASE}/property/tags?type=${encodeURIComponent("주변시설")}`,
+          { method: "GET", credentials: "include" }
+        );
 
-            if (!r.ok) {
-            const text = await r.text().catch(() => "");
-            console.error("[tags] status=", r.status, text);
-            this.errTags =
-                r.status === 403
-                ? "태그 조회가 403입니다. (백엔드 permitAll 필요)"
-                : "태그 목록을 불러오지 못했어요.";
-            return;
-            }
+        if (!r.ok) {
+          const text = await r.text().catch(() => "");
+          console.error("[tags] status=", r.status, text);
+          this.errTags =
+            r.status === 403
+              ? "태그 조회가 403입니다. (백엔드 permitAll 필요)"
+              : "태그 목록을 불러오지 못했어요.";
+          return;
+        }
 
-            const data = await r.json();
-            const rawList = Array.isArray(data) ? data : [];
+        const data = await r.json();
+        const rawList = Array.isArray(data) ? data : [];
 
-            // ✅ 1) 응답의 가능한 id 필드들을 모두 시도
-            const mapped = rawList.map((x, idx) => {
+        const mapped = rawList
+          .map((x, idx) => {
             const name = (x?.name ?? x?.tagName ?? "").trim();
-
-            // tagId / tag_id / id 등 어떤 형태로 오든 최대한 파싱
             const rawId = x?.tagId ?? x?.tag_id ?? x?.id ?? x?.tagID;
             let id = Number.parseInt(rawId, 10);
 
-            // ✅ 2) id가 NaN/0/음수면 "이름으로 복구"
             if (!Number.isInteger(id) || id <= 0) {
-                id = NAME_TO_ID[name] ?? null;
+              id = NAME_TO_ID[name] ?? null;
             }
 
             return {
-                tagId: id,
-                name,
-                _key: `${id ?? "n"}-${idx}`,
+              tagId: id,
+              name,
+              _key: `${id ?? "n"}-${idx}`,
             };
-            })
-            .filter((x) => Number.isInteger(x.tagId) && x.tagId > 0 && x.name);
+          })
+          .filter((x) => Number.isInteger(x.tagId) && x.tagId > 0 && x.name);
 
-            // ✅ 3) 혹시라도 tagId 중복이 있으면(=버그 재발) 중복 제거
-            const seen = new Set();
-            this.tagOptions = mapped.filter((t) => {
-            if (seen.has(t.tagId)) return false;
-            seen.add(t.tagId);
-            return true;
-            });
+        const seen = new Set();
+        this.tagOptions = mapped.filter((t) => {
+          if (seen.has(t.tagId)) return false;
+          seen.add(t.tagId);
+          return true;
+        });
 
-            console.log("[tagOptions]", this.tagOptions); // 여기서 tagId가 1,2,3,4로 나와야 정상
-        } catch (e) {
-            console.error("[tags] error=", e);
-            this.errTags = "태그 조회 중 네트워크 오류가 발생했어요.";
-        } finally {
-            this.loadingTags = false;
-        }
-        },
+        console.log("[tagOptions]", this.tagOptions);
+      } catch (e) {
+        console.error("[tags] error=", e);
+        this.errTags = "태그 조회 중 네트워크 오류가 발생했어요.";
+      } finally {
+        this.loadingTags = false;
+      }
+    },
 
     async onChangeSido() {
       this.local.gugun = "";
@@ -450,25 +457,55 @@ export default {
   letter-spacing: -0.08px;
 }
 
-/* 뒤로가기(위쪽) */
+/* 🎨 예쁜 뒤로가기 버튼 */
 .back-btn {
   position: absolute;
   left: 18px;
   top: 22px;
 
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  border: 1px solid var(--tothezip-beige-03);
-  background: var(--tothezip-white);
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: 1.5px solid var(--tothezip-brown-02);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(250, 247, 245, 0.95) 100%
+  );
+  box-shadow: 0 2px 8px rgba(75, 29, 28, 0.08);
 
-  color: var(--tothezip-beige-08);
-  font-size: 16px;
-  font-weight: 800;
+  color: var(--tothezip-brown-07);
   cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
+.back-btn svg {
+  transition: transform 0.3s ease;
+}
+
 .back-btn:hover {
-  background: var(--tothezip-beige-01);
+  background: linear-gradient(
+    135deg,
+    var(--tothezip-orange-01) 0%,
+    var(--tothezip-orange-02) 100%
+  );
+  border-color: var(--tothezip-orange-04);
+  color: var(--tothezip-orange-06);
+  transform: translateX(-4px);
+  box-shadow: 0 4px 12px rgba(227, 93, 55, 0.2);
+}
+
+.back-btn:hover svg {
+  transform: translateX(-2px);
+}
+
+.back-btn:active {
+  transform: translateX(-2px) scale(0.98);
 }
 
 /* 바디 */
@@ -480,14 +517,12 @@ export default {
   box-sizing: border-box;
 }
 
-/* ✅ 좌우 정렬 기준 컨테이너 */
 .field {
   --field-width: 260px;
   width: var(--field-width);
   margin: 0 auto;
 }
 
-/* 섹션 간 공백 */
 .block {
   margin-top: 14px;
 }
@@ -495,7 +530,6 @@ export default {
   margin-top: 0;
 }
 
-/* ✅ FormInput 라벨과 동일한 느낌(핵심: padding 2px 8px) */
 .field-label {
   display: block;
   margin: 0 0 6px;
@@ -509,7 +543,6 @@ export default {
   letter-spacing: -0.048px;
 }
 
-/* 2열 */
 .row-2 {
   display: flex;
   gap: 10px;
@@ -517,7 +550,6 @@ export default {
   align-items: flex-start;
 }
 
-/* ✅ select도 FormInput input-field와 동일 룩 */
 .select-wrap {
   width: 100%;
 }
@@ -527,7 +559,7 @@ export default {
 
 .select {
   width: 100%;
-  height: 38px; /* FormInput input-field와 동일 */
+  height: 38px;
   background: var(--tothezip-cream-02);
   border: 1px solid var(--tothezip-beige-02);
   border-radius: 10px;
@@ -547,24 +579,20 @@ export default {
   cursor: not-allowed;
 }
 
-/* FormInput도 field width에 맞추기 */
 .pref-body :deep(.input-group) {
   width: 100%;
   margin: 0;
 }
 
-/* label 없는 FormInput은 위 여백 최소화 */
 .pref-body :deep(.input-group.no-label .input-label) {
   display: none;
 }
 
-/* half FormInput */
 .pref-body :deep(.input-group.half) {
   width: calc((var(--field-width) - 10px) / 2);
   margin: 0;
 }
 
-/* 태그 4개 한 줄 */
 .tag-pills {
   width: 100%;
   display: flex;
@@ -601,14 +629,13 @@ export default {
 
 .hint {
   margin: 6px 0 0;
-  padding: 0 8px; /* FormInput helper-text처럼 */
+  padding: 0 8px;
   font-family: "Pretendard", sans-serif;
   font-size: 11px;
   line-height: 1.2;
   color: rgba(163, 151, 143, 0.9);
 }
 
-/* 완료 버튼 */
 .actions {
   margin-top: 18px;
   display: flex;
@@ -646,7 +673,6 @@ export default {
   background: var(--tothezip-white);
 }
 
-/* placeholder 느낌 */
 .select option[value=""] {
   color: var(--tothezip-beige-04);
 }

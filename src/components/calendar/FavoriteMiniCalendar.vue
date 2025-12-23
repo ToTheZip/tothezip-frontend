@@ -1,4 +1,3 @@
-
 <template>
   <transition name="slide-down">
     <section
@@ -9,31 +8,72 @@
     >
       <!-- Header -->
       <div class="top">
-        <h2 class="title">
-          <span class="icon">📅</span> 찜한 청약 일정
-        </h2>
-        
-        <button class="close-btn" @click="ui.closeFavoriteCalendar" aria-label="닫기">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        <h2 class="title"><span class="icon">📅</span> 찜한 청약 일정</h2>
+
+        <button
+          class="close-btn"
+          @click="ui.closeFavoriteCalendar"
+          aria-label="닫기"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
         </button>
       </div>
 
       <!-- Month Navigation -->
       <div class="month-control">
-         <button class="nav-btn" @click="prevMonth" aria-label="이전 달">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-         </button>
-         <div class="month-label">
-            {{ viewYear }}.{{ String(viewMonth).padStart(2, "0") }}
-         </div>
-         <button class="nav-btn" @click="nextMonth" aria-label="다음 달">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-         </button>
+        <button class="nav-btn" @click="prevMonth" aria-label="이전 달">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+        <div class="month-label">
+          {{ viewYear }}.{{ String(viewMonth).padStart(2, "0") }}
+        </div>
+        <button class="nav-btn" @click="nextMonth" aria-label="다음 달">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
       </div>
 
       <!-- Week Header -->
       <div class="week">
-        <span v-for="(w, i) in weekNames" :key="w" class="w" :class="{ 'sun': i === 0, 'sat': i === 6 }">
+        <span
+          v-for="(w, i) in weekNames"
+          :key="w"
+          class="w"
+          :class="{ sun: i === 0, sat: i === 6 }"
+        >
           {{ w }}
         </span>
       </div>
@@ -44,9 +84,9 @@
           v-for="(cell, idx) in cells"
           :key="idx"
           class="cell"
-          :class="{ 
-            'is-empty': !cell.day, 
-            'is-today': cell.isToday 
+          :class="{
+            'is-empty': !cell.day,
+            'is-today': cell.isToday,
           }"
         >
           <div class="day-number">{{ cell.day || "" }}</div>
@@ -55,31 +95,109 @@
           <div v-if="cell.day && hasAnyDots(cell.key)" class="dots-wrapper">
             <!-- Orange Dots (접수중) -->
             <template v-if="dayEventsMap[cell.key]?.orange?.length">
-              <button
+              <div
                 v-for="ev in visibleDots(dayEventsMap[cell.key].orange)"
                 :key="'o-' + ev.noticeId + '-' + ev._k"
-                class="dot orange"
-                :title="`[접수] ${ev.name}`"
-                @click.stop="goDetail(ev.noticeId)"
-              ></button>
+                class="dot-container"
+              >
+                <button
+                  class="dot orange"
+                  @click.stop="goDetail(ev.noticeId)"
+                ></button>
+                <div class="tooltip">
+                  <div class="tooltip-header">
+                    <span class="tooltip-badge orange">접수중</span>
+                    <span class="tooltip-title">{{ ev.name }}</span>
+                  </div>
+                  <div class="tooltip-date">
+                    <svg
+                      class="calendar-icon"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <rect
+                        x="3"
+                        y="4"
+                        width="18"
+                        height="18"
+                        rx="2"
+                        ry="2"
+                      ></rect>
+                      <line x1="16" y1="2" x2="16" y2="6"></line>
+                      <line x1="8" y1="2" x2="8" y2="6"></line>
+                      <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    <span>{{
+                      formatDateRange(ev.applyStart, ev.applyEnd)
+                    }}</span>
+                  </div>
+                </div>
+              </div>
             </template>
 
             <!-- Blue Dots (발표일) -->
             <template v-if="dayEventsMap[cell.key]?.blue?.length">
-              <button
+              <div
                 v-for="ev in visibleDots(dayEventsMap[cell.key].blue)"
                 :key="'b-' + ev.noticeId + '-' + ev._k"
-                class="dot blue"
-                :title="`[발표] ${ev.name}`"
-                @click.stop="goDetail(ev.noticeId)"
-              ></button>
+                class="dot-container"
+              >
+                <button
+                  class="dot blue"
+                  @click.stop="goDetail(ev.noticeId)"
+                ></button>
+                <div class="tooltip">
+                  <div class="tooltip-header">
+                    <span class="tooltip-badge blue">발표</span>
+                    <span class="tooltip-title">{{ ev.name }}</span>
+                  </div>
+                  <div class="tooltip-date">
+                    <svg
+                      class="calendar-icon"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <rect
+                        x="3"
+                        y="4"
+                        width="18"
+                        height="18"
+                        rx="2"
+                        ry="2"
+                      ></rect>
+                      <line x1="16" y1="2" x2="16" y2="6"></line>
+                      <line x1="8" y1="2" x2="8" y2="6"></line>
+                      <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    <span>{{ formatSingleDate(ev.publishDate) }}</span>
+                  </div>
+                </div>
+              </div>
             </template>
-            
+
             <!-- More Indicator -->
-            <div 
-               v-if="(dayEventsMap[cell.key]?.orange?.length || 0) + (dayEventsMap[cell.key]?.blue?.length || 0) > MAX_DOTS"
-               class="more-indicator"
-            >+</div>
+            <div
+              v-if="
+                (dayEventsMap[cell.key]?.orange?.length || 0) +
+                  (dayEventsMap[cell.key]?.blue?.length || 0) >
+                MAX_DOTS
+              "
+              class="more-indicator"
+            >
+              +
+            </div>
           </div>
         </div>
       </div>
@@ -124,11 +242,11 @@ const router = useRouter();
 
 const panelRef = ref(null);
 const weekNames = ["일", "월", "화", "수", "목", "금", "토"];
-const MAX_DOTS = 4; // 그리드 크기에 맞춰 조정
+const MAX_DOTS = 4;
 
 const isLoading = ref(false);
-const viewDate = ref(new Date()); 
-const rawEvents = ref([]);       
+const viewDate = ref(new Date());
+const rawEvents = ref([]);
 
 const viewYear = computed(() => viewDate.value.getFullYear());
 const viewMonth = computed(() => viewDate.value.getMonth() + 1);
@@ -149,12 +267,33 @@ function toDate(x) {
   return new Date(y, m - 1, d);
 }
 
+function formatSingleDate(date) {
+  if (!date) return "";
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}.${m}.${d}`;
+}
+
+function formatDateRange(start, end) {
+  if (!start || !end) return "";
+  const startStr = formatSingleDate(start);
+  const endStr = formatSingleDate(end);
+  return `${startStr} ~ ${endStr}`;
+}
+
 function normalizeEvent(ev) {
   const noticeId = Number(ev.noticeId ?? ev.subscriptionId ?? ev.id);
   const name = ev.name ?? ev.title ?? ev.noticeTitle ?? "";
-  const applyStart = toDate(ev.startDate ?? ev.applyStartDate ?? ev.start ?? ev.beginDate);
-  const applyEnd = toDate(ev.endDate ?? ev.applyEndDate ?? ev.end ?? ev.finishDate ?? ev.startDate);
-  const publishDate = toDate(ev.registDate ?? ev.publishDate ?? ev.announcementDate ?? ev.noticeDate);
+  const applyStart = toDate(
+    ev.startDate ?? ev.applyStartDate ?? ev.start ?? ev.beginDate
+  );
+  const applyEnd = toDate(
+    ev.endDate ?? ev.applyEndDate ?? ev.end ?? ev.finishDate ?? ev.startDate
+  );
+  const publishDate = toDate(
+    ev.registDate ?? ev.publishDate ?? ev.announcementDate ?? ev.noticeDate
+  );
   const _k = Math.random().toString(36).slice(2);
   return { noticeId, name, applyStart, applyEnd, publishDate, _k };
 }
@@ -162,7 +301,11 @@ function normalizeEvent(ev) {
 function eachDayInclusive(start, end, fn) {
   const s = new Date(start.getFullYear(), start.getMonth(), start.getDate());
   const e = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-  for (let d = s; d <= e; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
+  for (
+    let d = s;
+    d <= e;
+    d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)
+  ) {
     fn(d);
   }
 }
@@ -192,7 +335,7 @@ const dayEventsMap = computed(() => {
 
 function hasAnyDots(key) {
   const x = dayEventsMap.value[key];
-  return !!(x && ((x.orange?.length || 0) + (x.blue?.length || 0) > 0));
+  return !!(x && (x.orange?.length || 0) + (x.blue?.length || 0) > 0);
 }
 
 const totalEvents = computed(() => rawEvents.value.length);
@@ -216,7 +359,7 @@ const cells = computed(() => {
   }
 
   while (result.length % 7 !== 0) result.push({ day: null });
-  while (result.length < 35) result.push({ day: null }); 
+  while (result.length < 35) result.push({ day: null });
 
   return result;
 });
@@ -274,12 +417,18 @@ function nextMonth() {
   viewDate.value = new Date(d.getFullYear(), d.getMonth() + 1, 1);
 }
 
-watch(() => ui.showFavoriteCalendar, (open) => {
-  if (open) loadData();
-});
-watch(() => [viewYear.value, viewMonth.value], () => {
-  if (ui.showFavoriteCalendar) loadData();
-});
+watch(
+  () => ui.showFavoriteCalendar,
+  (open) => {
+    if (open) loadData();
+  }
+);
+watch(
+  () => [viewYear.value, viewMonth.value],
+  () => {
+    if (ui.showFavoriteCalendar) loadData();
+  }
+);
 
 function onDocClick(e) {
   if (e.target.closest?.('[data-favcal-toggle="1"]')) return;
@@ -302,12 +451,12 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
   background: var(--tothezip-cream-01);
   border: 2px solid var(--tothezip-beige-03);
   border-radius: 24px;
-  box-shadow: 0 8px 24px rgba(75, 29, 28, 0.12); /* 부드러운 그림자 */
+  box-shadow: 0 8px 24px rgba(75, 29, 28, 0.12);
   z-index: 2000;
   padding: 20px;
   font-family: "Pretendard", sans-serif;
   color: var(--tothezip-brown-09);
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* ----------- Header Area ----------- */
@@ -383,7 +532,7 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
   color: var(--tothezip-brown-06);
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
 }
 
 .nav-btn:hover {
@@ -407,19 +556,24 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
   padding: 4px 0;
 }
 
-.w.sun { color: var(--tothezip-ruby-05); }
-.w.sat { color: var(--tothezip-brown-05); }
+.w.sun {
+  color: var(--tothezip-ruby-05);
+}
+.w.sat {
+  color: var(--tothezip-brown-05);
+}
 
 /* ----------- Calendar Grid ----------- */
 .grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 6px; /* 셀 간격 */
+  gap: 6px;
   margin-bottom: 12px;
+  overflow: visible;
 }
 
 .cell {
-  height: 44px; /* 높이 약간 키움 */
+  height: 44px;
   background: #fff;
   border-radius: 10px;
   border: 1px solid var(--tothezip-beige-01);
@@ -428,6 +582,7 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
   flex-direction: column;
   padding: 4px;
   transition: background-color 0.2s;
+  overflow: visible;
 }
 
 .cell.is-empty {
@@ -456,6 +611,12 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
   gap: 3px;
   align-content: flex-start;
   flex: 1;
+  overflow: visible;
+}
+
+.dot-container {
+  position: relative;
+  display: inline-block;
 }
 
 .dot {
@@ -465,15 +626,119 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
   border: none;
   cursor: pointer;
   transition: transform 0.2s;
+  display: block;
 }
 
 .dot:hover {
   transform: scale(1.3);
 }
 
-/* Color Variables Mapping */
-.dot.orange { background-color: var(--tothezip-orange-04); }
-.dot.blue { background-color: var(--tothezip-brown-07); } /* 발표일은 짙은 갈색으로 세련되게 */
+.dot.orange {
+  background-color: var(--tothezip-orange-04);
+}
+.dot.blue {
+  background-color: var(--tothezip-brown-07);
+}
+
+/* 🎨 Beautiful Tooltip */
+.tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #ffffff 0%, #fefdfb 100%);
+  border: 2px solid var(--tothezip-orange-03);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 8px 24px rgba(227, 93, 55, 0.2), 0 4px 8px rgba(0, 0, 0, 0.1);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 1000;
+  min-width: 200px;
+}
+
+.tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--tothezip-orange-03);
+}
+
+.dot-container:hover .tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(-4px);
+}
+
+.tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.tooltip-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  flex-shrink: 0;
+}
+
+.tooltip-badge.orange {
+  background: linear-gradient(
+    135deg,
+    var(--tothezip-orange-04),
+    var(--tothezip-orange-05)
+  );
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(227, 93, 55, 0.3);
+}
+
+.tooltip-badge.blue {
+  background: linear-gradient(
+    135deg,
+    var(--tothezip-brown-07),
+    var(--tothezip-brown-08)
+  );
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(75, 29, 28, 0.3);
+}
+
+.tooltip-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--tothezip-brown-09);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tooltip-date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tothezip-brown-06);
+  padding: 6px 8px;
+  background: rgba(244, 236, 231, 0.5);
+  border-radius: 6px;
+}
+
+.calendar-icon {
+  color: var(--tothezip-orange-05);
+  flex-shrink: 0;
+}
 
 .more-indicator {
   font-size: 9px;
@@ -484,7 +749,8 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
 }
 
 /* ----------- Empty & Loading ----------- */
-.empty-state, .loading-state {
+.empty-state,
+.loading-state {
   text-align: center;
   padding: 30px 0;
   color: var(--tothezip-gray-04);
@@ -507,7 +773,11 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
   animation: spin 0.8s linear infinite;
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* ----------- Legend ----------- */
 .legend {
@@ -530,8 +800,12 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
   border-radius: 50%;
 }
 
-.legend-dot.orange { background-color: var(--tothezip-orange-04); }
-.legend-dot.blue { background-color: var(--tothezip-brown-07); }
+.legend-dot.orange {
+  background-color: var(--tothezip-orange-04);
+}
+.legend-dot.blue {
+  background-color: var(--tothezip-brown-07);
+}
 
 .legend-text {
   font-size: 11px;

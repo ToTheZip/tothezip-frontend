@@ -8,27 +8,28 @@
           >, 추천 매물을 준비했어요
         </template>
         <template v-else>
-          <span class="highlight">추천 매물</span>
-          을 준비했어요.
+          <span class="highlight">추천 매물</span>을 준비했어요.
         </template>
       </div>
+
       <div class="section-tags">
         <button
           v-for="tag in tags"
           :key="tag"
           class="tag-button"
-          @click="handleTagClick(tag)"
+          @click="$emit('tag-click', tag)"
         >
           #{{ tag }}
         </button>
       </div>
     </div>
+
     <div class="properties-grid">
       <PropertyCard
-        v-for="property in properties"
-        :key="property.id"
-        :property="property"
-        @go-map="handleGoMap"
+        v-for="p in properties"
+        :key="p.id"
+        :property="p"
+        @go-map="(aptSeq) => $emit('property-go-map', aptSeq)"
       />
     </div>
   </div>
@@ -36,49 +37,15 @@
 
 <script>
 import PropertyCard from "./PropertyCard.vue";
-import { useAuthStore } from "@/stores/auth";
 
 export default {
   name: "PropertiesSection",
-  components: {
-    PropertyCard,
-  },
-  // computed: {
-  //   auth() {
-  //     return useAuthStore();
-  //   },
-  //   isLoggedIn() {
-  //     return !!this.auth.accessToken;
-  //   },
-  // },
+  components: { PropertyCard },
   props: {
-    isLoggedIn: {
-      type: Boolean,
-      default: false,
-    },
-    regionName: {
-      type: String,
-      default: "종로구",
-    },
-    tags: {
-      type: Array,
-      default: () => ["역세권", "학세권", "문세권"],
-    },
-    properties: {
-      type: Array,
-      required: true,
-    },
-  },
-  methods: {
-    handleTagClick(tag) {
-      this.$emit("tag-click", tag);
-    },
-    handlePropertyClick(propertyId) {
-      this.$emit("property-click", propertyId);
-    },
-    handleGoMap(aptSeq) {
-      this.$emit("property-go-map", aptSeq);
-    },
+    isLoggedIn: Boolean,
+    regionName: String,
+    tags: Array,
+    properties: { type: Array, required: true },
   },
 };
 </script>
