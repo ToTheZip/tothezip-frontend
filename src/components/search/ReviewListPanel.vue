@@ -33,6 +33,42 @@
           </button>
         </div>
 
+        <!-- 리뷰 통계 -->
+        <div v-if="!loading && !error && totalCount > 0" class="review-stats">
+          <div class="stats-left">
+            <div class="avg-score">{{ avgRating.toFixed(1) }}</div>
+            <div class="avg-stars">
+              <span
+                v-for="i in 5"
+                :key="i"
+                class="star"
+                :class="{ filled: i <= Math.round(avgRating) }"
+              >
+                ★
+              </span>
+            </div>
+            <div class="stats-total">({{ totalCount }}개)</div>
+          </div>
+
+          <div class="stats-right">
+            <div v-for="s in [5, 4, 3, 2, 1]" :key="s" class="stat-row">
+              <span class="stat-label">{{ s }}점</span>
+              <div class="stat-bar">
+                <div
+                  class="stat-bar-fill"
+                  :style="{ width: ratingPercent(s) + '%' }"
+                />
+              </div>
+              <span class="stat-count">{{ ratingCount(s) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-if="!loading && !error && totalCount > 0"
+          class="stats-divider"
+        ></div>
+
         <!-- 목록 상태 -->
         <div v-if="loading" class="reviews-placeholder">
           <p>불러오는 중...</p>
@@ -58,7 +94,8 @@
               />
               <div class="review-body">
                 <div class="review-top">
-                  <div class="stars">
+                  <!-- 편집 중 아닐 때만 별점 -->
+                  <div v-if="editingId !== r.reviewId" class="stars">
                     <span
                       v-for="i in 5"
                       :key="i"
@@ -68,9 +105,69 @@
                       ★
                     </span>
                   </div>
+
                   <span class="date">{{ formatDate(r.reviewDate) }}</span>
                 </div>
-                <div class="content">{{ r.reviewContent }}</div>
+
+                <!-- 편집 모드 -->
+                <div v-if="editingId === r.reviewId" class="edit-area">
+                  <div class="rating-row small">
+                    <span
+                      v-for="i in 5"
+                      :key="i"
+                      class="star"
+                      :class="{ filled: i <= editRating }"
+                      @click="editRating = i"
+                    >
+                      ★
+                    </span>
+                  </div>
+
+                  <textarea
+                    v-model="editContent"
+                    class="content-input"
+                    rows="3"
+                  />
+                  <p v-if="editError" class="submit-error">{{ editError }}</p>
+
+                  <div class="write-actions">
+                    <button class="cancel" type="button" @click="cancelEdit">
+                      취소
+                    </button>
+                    <button
+                      class="submit"
+                      type="button"
+                      :disabled="editing"
+                      @click="saveEdit"
+                    >
+                      {{ editing ? "저장 중..." : "저장" }}
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 일반 모드 -->
+                <div v-else class="content">{{ r.reviewContent }}</div>
+
+                <!-- 버튼은 아래로 -->
+                <div
+                  v-if="isMine(r) && editingId !== r.reviewId"
+                  class="review-actions-row"
+                >
+                  <button
+                    class="action-btn"
+                    type="button"
+                    @click.stop="startEdit(r)"
+                  >
+                    편집
+                  </button>
+                  <button
+                    class="action-btn danger"
+                    type="button"
+                    @click.stop="deleteReview(r)"
+                  >
+                    삭제
+                  </button>
+                </div>
               </div>
             </div>
           </transition-group>
@@ -194,12 +291,25 @@ export default {
 
       showSuccessToast: false,
       toastTimer: null,
+
+      editingId: null,
+      editContent: "",
+      editRating: 5,
+      editing: false,
+      editError: "",
+
+      avgRating: 0,
+      counts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
     };
   },
   computed: {
     isLoggedIn() {
       const auth = useAuthStore();
       return auth.isLoggedIn;
+    },
+    myUserId() {
+      const auth = useAuthStore();
+      return auth?.user?.userId ?? null;
     },
   },
   watch: {
@@ -294,12 +404,30 @@ export default {
         this.reviews = Array.isArray(data?.reviews) ? data.reviews : [];
         this.offset = this.reviews.length;
         this.hasMore = !!data?.hasMore;
+
+        // 통계 반영
+        this.avgRating = Number(data?.avgRating || 0);
+        this.counts = {
+          1: Number(data?.count1 || 0),
+          2: Number(data?.count2 || 0),
+          3: Number(data?.count3 || 0),
+          4: Number(data?.count4 || 0),
+          5: Number(data?.count5 || 0),
+        };
       } catch (e) {
         console.error(e);
         this.error = "리뷰를 불러오지 못했어요.";
       } finally {
         this.loading = false;
       }
+    },
+    ratingCount(score) {
+      return Number(this.counts?.[score] || 0);
+    },
+    ratingPercent(score) {
+      const total = Number(this.totalCount || 0);
+      if (!total) return 0;
+      return Math.round((this.ratingCount(score) / total) * 100);
     },
 
     async loadMore() {
@@ -371,6 +499,92 @@ export default {
             : "리뷰 등록에 실패했어요.";
       } finally {
         this.submitting = false;
+      }
+    },
+    isMine(r) {
+      return (
+        this.isLoggedIn &&
+        this.myUserId != null &&
+        Number(r.userId) === Number(this.myUserId)
+      );
+    },
+
+    startEdit(r) {
+      this.editingId = r.reviewId;
+      this.editContent = r.reviewContent || "";
+      this.editRating = Number(r.reviewRating) || 5;
+      this.editError = "";
+    },
+
+    cancelEdit() {
+      this.editingId = null;
+      this.editContent = "";
+      this.editRating = 5;
+      this.editError = "";
+      this.editing = false;
+    },
+
+    async saveEdit() {
+      if (!this.editingId) return;
+
+      const content = this.editContent.trim();
+      if (!content) {
+        this.editError = "내용을 입력해주세요.";
+        return;
+      }
+      if (this.editRating < 1 || this.editRating > 5) {
+        this.editError = "별점은 1~5점이어야 해요.";
+        return;
+      }
+
+      this.editing = true;
+      this.editError = "";
+
+      try {
+        await http.put(`/reviews/${this.editingId}`, {
+          reviewContent: content,
+          reviewRating: this.editRating,
+        });
+
+        const target = this.reviews.find((x) => x.reviewId === this.editingId);
+        if (target) {
+          target.reviewContent = content;
+          target.reviewRating = this.editRating;
+        }
+
+        this.cancelEdit();
+        // 필요하면 최신화
+        // await this.fetchFirst();
+      } catch (e) {
+        console.error(e);
+        this.editError =
+          e?.response?.status === 403
+            ? "본인 리뷰만 수정할 수 있어요."
+            : "수정에 실패했어요.";
+      } finally {
+        this.editing = false;
+      }
+    },
+
+    async deleteReview(r) {
+      if (!confirm("리뷰를 삭제할까요?")) return;
+
+      try {
+        await http.delete(`/reviews/${r.reviewId}`);
+
+        this.reviews = this.reviews.filter((x) => x.reviewId !== r.reviewId);
+        this.totalCount = Math.max(0, this.totalCount - 1);
+        this.hasMore = this.totalCount > this.reviews.length;
+
+        // 편집중인 리뷰 삭제한 경우
+        if (this.editingId === r.reviewId) this.cancelEdit();
+      } catch (e) {
+        console.error(e);
+        alert(
+          e?.response?.status === 403
+            ? "본인 리뷰만 삭제할 수 있어요."
+            : "삭제에 실패했어요."
+        );
       }
     },
 
@@ -502,6 +716,19 @@ export default {
   gap: 4px;
   margin-bottom: 8px;
 }
+/* 조회용 별점 */
+.stars {
+  display: inline-flex;
+  gap: 1px;
+  line-height: 1;
+}
+/* 편집용 별점(작성/편집 공통) */
+.rating-row {
+  display: flex;
+  gap: 1px;
+  margin-bottom: 8px;
+  line-height: 1;
+}
 .star {
   font-size: 14px;
   opacity: 0.25;
@@ -563,11 +790,72 @@ export default {
   border-radius: 50%;
   object-fit: cover;
 }
-.review-top {
+/* .review-top {
   display: flex;
   justify-content: space-between;
   font-size: 10px;
+} */
+.review-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
+.date {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--tothezip-gray-04);
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.review-top .right-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.review-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.review-actions-row {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.action-btn {
+  border: none;
+  background: rgba(255, 237, 219, 0.95);
+  color: #f08a3c;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.action-btn:hover {
+  opacity: 0.85;
+}
+
+.action-btn.danger {
+  background: rgba(255, 230, 230, 0.95);
+  color: #d64b4b;
+}
+
+.edit-area {
+  margin-top: 8px;
+}
+
+.rating-row.small .star {
+  font-size: 13px;
+}
+
 .content {
   font-size: 11px;
   margin-top: 4px;
@@ -644,5 +932,88 @@ export default {
 
 :deep(.review-move) {
   transition: transform 0.28s ease;
+}
+.review-stats {
+  margin-top: 10px;
+  padding: 10px 10px;
+  border: 1px solid rgba(240, 138, 60, 0.18);
+  background: rgba(255, 237, 219, 0.55);
+  border-radius: 14px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.stats-left {
+  width: 78px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.avg-score {
+  font-size: 22px;
+  font-weight: 800;
+  color: #f08a3c;
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+.avg-stars {
+  display: inline-flex;
+  gap: 1px;
+  line-height: 1;
+}
+
+.stats-total {
+  font-size: 10px;
+  color: var(--tothezip-gray-04);
+}
+
+.stats-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stat-row {
+  display: grid;
+  grid-template-columns: 28px 1fr 26px;
+  align-items: center;
+  gap: 8px;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: var(--tothezip-gray-05);
+  white-space: nowrap;
+}
+
+.stat-count {
+  font-size: 10px;
+  color: var(--tothezip-gray-05);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.stat-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.stat-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: rgba(240, 138, 60, 0.85);
+}
+
+.stats-divider {
+  margin: 10px 2px 12px;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.06);
 }
 </style>
