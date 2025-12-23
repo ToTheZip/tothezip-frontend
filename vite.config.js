@@ -24,6 +24,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => `/tothezip${path}`,
       },
+      "/reviews": {
+        target: "http://localhost:80",
+        changeOrigin: true,
+        rewrite: (path) => `/tothezip${path}`,
+      },
       "/user": {
         target: "http://localhost:80",
         changeOrigin: true,
