@@ -3,8 +3,9 @@
     <div class="section-header">
       <div class="section-title">
         <template v-if="isLoggedIn">
-          관심 등록한 <span class="highlight">{{ regionName || "관심지역" }}</span>,
-          추천 매물을 준비했어요
+          관심 등록한
+          <span class="highlight">{{ regionName || "관심지역" }}</span
+          >, 추천 매물을 준비했어요
         </template>
         <template v-else>
           <span class="highlight">추천 매물</span>

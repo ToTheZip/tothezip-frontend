@@ -246,12 +246,11 @@ export default {
       listings: [],
       listingsLoading: false,
       listingsError: "",
-    // reviews
+      // reviews
       reviews: [],
       reviewsTotalCount: 0,
       reviewsLoading: false,
       reviewsError: "",
-      
     };
   },
   watch: {
@@ -267,100 +266,99 @@ export default {
     /* =========================
         매물 찜 토글
       ========================= */
-      async toggleListingLike(item) {
-        console.log("Toggling like for item:", item);
-        const auth = useAuthStore();
+    async toggleListingLike(item) {
+      console.log("Toggling like for item:", item);
+      const auth = useAuthStore();
 
-        if (!auth.accessToken) {
-          alert("로그인 후 이용해주세요");
-          this.$router.push("/login");
-          return;
-        }
+      if (!auth.accessToken) {
+        alert("로그인 후 이용해주세요");
+        this.$router.push("/login");
+        return;
+      }
 
-        const has = !!item.isLiked;
-        item.isLiked = !has; // ✅ optimistic UI
+      const has = !!item.isLiked;
+      item.isLiked = !has; // ✅ optimistic UI
 
-        try {
-          if (has) {
-            // 찜 해제
-            console.log("Deleting favorite for item:", item.propertyId);
-            await axios.delete(`${API_BASE}/favorite`, {
-              params: {
-                type: "매물",
-                referenceId: item.propertyId,
-              },
+      try {
+        if (has) {
+          // 찜 해제
+          console.log("Deleting favorite for item:", item.propertyId);
+          await axios.delete(`${API_BASE}/favorite`, {
+            params: {
+              type: "매물",
+              referenceId: item.propertyId,
+            },
+            headers: {
+              Authorization: `Bearer ${auth.accessToken}`,
+            },
+            withCredentials: true,
+          });
+        } else {
+          // 찜 추가
+          await axios.post(
+            `${API_BASE}/favorite`,
+            {
+              type: "매물",
+              referenceId: item.propertyId,
+            },
+            {
               headers: {
                 Authorization: `Bearer ${auth.accessToken}`,
               },
               withCredentials: true,
-            });
-          } else {
-            // 찜 추가
-            await axios.post(
-              `${API_BASE}/favorite`,
-              {
-                type: "매물",
-                referenceId: item.propertyId,
-              },
-              {
+            }
+          );
+        }
+      } catch (e) {
+        console.error(e);
+        item.isLiked = has; // ❌ 실패 시 롤백
+        alert("찜 처리에 실패했어요.");
+      }
+    },
+
+    /* =========================
+        매물 목록 + 찜 상태 로딩
+      ========================= */
+    async fetchListings() {
+      const aptSeq = this.property?.aptSeq;
+      if (!aptSeq) return;
+
+      this.listingsLoading = true;
+      this.listingsError = "";
+      this.listings = [];
+
+      try {
+        const auth = useAuthStore();
+
+        const [listRes, favRes] = await Promise.all([
+          axios.get(`/property/${aptSeq}/listings`),
+          auth.accessToken
+            ? axios.get(`${API_BASE}/favorite`, {
+                params: { type: "매물" },
                 headers: {
                   Authorization: `Bearer ${auth.accessToken}`,
                 },
                 withCredentials: true,
-              }
-            );
-          }
-        } catch (e) {
-          console.error(e);
-          item.isLiked = has; // ❌ 실패 시 롤백
-          alert("찜 처리에 실패했어요.");
-        }
-      },
+              })
+            : Promise.resolve({ data: [] }),
+        ]);
 
-      /* =========================
-        매물 목록 + 찜 상태 로딩
-      ========================= */
-      async fetchListings() {
-        const aptSeq = this.property?.aptSeq;
-        if (!aptSeq) return;
+        const likedIds = new Set(favRes.data || []);
 
-        this.listingsLoading = true;
-        this.listingsError = "";
-        this.listings = [];
+        this.listings = (listRes.data || []).map((x) => ({
+          ...x,
+          isLiked: likedIds.has(x.propertyId),
+        }));
+        console.log("favRes.data", favRes.data);
+      } catch (e) {
+        console.error(e);
+        this.listingsError = "매물 정보를 불러오지 못했어요.";
+      } finally {
+        this.listingsLoading = false;
+      }
+    },
 
-        try {
-          const auth = useAuthStore();
-
-          const [listRes, favRes] = await Promise.all([
-            axios.get(`/property/${aptSeq}/listings`),
-            auth.accessToken
-              ? axios.get(`${API_BASE}/favorite`, {
-                  params: { type: "매물" },
-                  headers: {
-                    Authorization: `Bearer ${auth.accessToken}`,
-                  },
-                  withCredentials: true,
-                })
-              : Promise.resolve({ data: [] }),
-          ]);
-
-          const likedIds = new Set(favRes.data || []);
-
-          this.listings = (listRes.data || []).map((x) => ({
-            ...x,
-            isLiked: likedIds.has(x.propertyId),
-          }));
-                      console.log("favRes.data", favRes.data);
-
-        } catch (e) {
-          console.error(e);
-          this.listingsError = "매물 정보를 불러오지 못했어요.";
-        } finally {
-          this.listingsLoading = false;
-        }
-      },
-
-      // 리뷰 5개 프리뷰 가져오기
+    // 리뷰 5개 프리뷰 가져오기
     async fetchReviewsPreview() {
       const aptSeq = this.property?.aptSeq;
       if (!aptSeq) return;
@@ -449,24 +447,23 @@ export default {
     },
   },
   // 프로필 이미지 경로 처리 (서버가 /uploads/... 처럼 주는 케이스 대응)
-    profileSrc(path) {
-      if (!path) return "/images/default_profile.png"; // 너네 기본 이미지로 교체해도 됨
-      // 이미 http로 내려오면 그대로
-      if (String(path).startsWith("http")) return path;
-      return path; // "/uploads/xxx.png" 형태면 그대로 사용
-    },
+  profileSrc(path) {
+    if (!path) return "/images/default_profile.png"; // 너네 기본 이미지로 교체해도 됨
+    // 이미 http로 내려오면 그대로
+    if (String(path).startsWith("http")) return path;
+    return path; // "/uploads/xxx.png" 형태면 그대로 사용
+  },
 
-    formatDate(v) {
-      if (!v) return "";
-      // "2025-12-23 10:11:12" / ISO 둘 다 대충 처리
-      const s = String(v).replace(" ", "T");
-      const d = new Date(s);
-      if (Number.isNaN(d.getTime())) return String(v).slice(0, 10);
-      return d.toISOString().slice(0, 10);
-    },
+  formatDate(v) {
+    if (!v) return "";
+    // "2025-12-23 10:11:12" / ISO 둘 다 대충 처리
+    const s = String(v).replace(" ", "T");
+    const d = new Date(s);
+    if (Number.isNaN(d.getTime())) return String(v).slice(0, 10);
+    return d.toISOString().slice(0, 10);
+  },
 };
 </script>
-
 
 <style scoped>
 /* --- 기존 스타일 그대로 --- */
@@ -776,7 +773,6 @@ export default {
 .listing-like-button.liked .icon {
   color: #ffffff;
 }
-
 
 /* 리뷰 헤더(제목 + 화살표) */
 .section-header {

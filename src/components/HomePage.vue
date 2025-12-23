@@ -44,7 +44,7 @@
           :properties="displayProperties"
           @tag-click="filterProperties"
           @property-click="goToPropertyDetail"
-          @property-go-map="goToMapPage"
+          @property-go-map="goRecoMap"
         />
 
         <!-- News Section -->
@@ -68,6 +68,7 @@ import Footer from "@/components/common/Footer.vue";
 
 import { fetchHomeRecommendations, fetchHomeNotices } from "@/api/home";
 import { useAuthStore } from "@/stores/auth";
+import { useUIStore } from "@/stores/ui";
 
 export default {
   name: "HomePage",
@@ -109,6 +110,23 @@ export default {
   },
 
   methods: {
+    goRecoMap(aptSeq) {
+      const ui = useUIStore();
+
+      const payload = {
+        regionNames: this.regionName,
+        facilityTags: this.propertyTags,
+        aptSeqList: this.displayProperties.map((p) => p.id),
+      };
+
+      sessionStorage.setItem("tothezip_reco", JSON.stringify(payload));
+
+      ui.setSearchMode("RECO");
+      this.$router.push({
+        path: "/search",
+        query: { mode: "reco", open: String(aptSeq) },
+      });
+    },
     goSearch(searchData) {
       this.$router.push({
         path: "/search",
