@@ -7,6 +7,7 @@
         </button>
       </div>
 
+      <!-- 이미지 -->
       <div class="images-area">
         <div class="main-image-wrapper">
           <div class="main-image-box">
@@ -26,7 +27,6 @@
               class="sub-image"
             />
 
-            <!-- 4번째 썸네일(= index 3) 위에 +n -->
             <div
               v-if="index === 3 && remainingCount > 0"
               class="image-more-overlay"
@@ -37,6 +37,7 @@
         </div>
       </div>
 
+      <!-- 건물 정보 -->
       <div class="building-info-section">
         <div class="tags-row-detail">
           <span v-for="tag in property.tags" :key="tag" class="detail-tag">
@@ -61,11 +62,13 @@
         </div>
       </div>
 
+      <!-- 거래 기록 -->
       <div class="section-divider">
         <h3 class="section-title">거래 기록</h3>
         <div class="chart-placeholder"><p>시세 그래프</p></div>
       </div>
 
+      <!-- 매물 -->
       <div class="section-divider">
         <h3 class="section-title">매물</h3>
         <div class="listings-area">
@@ -117,10 +120,63 @@
         </div>
       </div>
 
+      <!-- 리뷰 -->
       <div class="section-divider">
-        <h3 class="section-title">리뷰</h3>
-        <div class="reviews-placeholder">
-          <p>리뷰 영역</p>
+        <div class="section-title-row">
+          <h3 class="section-title">리뷰</h3>
+
+          <button
+            class="reviews-more-button"
+            type="button"
+            @click="
+              $emit('open-reviews', {
+                aptSeq: property.aptSeq,
+                name: property.name,
+              })
+            "
+            aria-label="전체 리뷰 보기"
+          >
+            <ChevronRight class="chevron-icon" />
+          </button>
+        </div>
+
+        <div v-if="reviewsLoading" class="reviews-placeholder">
+          <p>불러오는 중...</p>
+        </div>
+
+        <div v-else-if="reviewsError" class="reviews-placeholder">
+          <p>{{ reviewsError }}</p>
+        </div>
+
+        <div v-else-if="reviews.length === 0" class="reviews-placeholder">
+          <p>등록된 리뷰가 없어요.</p>
+        </div>
+
+        <div v-else class="reviews-list">
+          <div v-for="r in reviews" :key="r.reviewId" class="review-item">
+            <img
+              class="avatar"
+              :src="resolveImg(r.profileImg)"
+              alt="profile"
+              @error="onImgError"
+            />
+
+            <div class="review-body">
+              <div class="review-top">
+                <div class="stars">
+                  <span
+                    v-for="i in 5"
+                    :key="i"
+                    class="star"
+                    :class="{ filled: i <= (Number(r.reviewRating) || 0) }"
+                    >★</span
+                  >
+                </div>
+              </div>
+
+              <div class="content">{{ r.reviewContent }}</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -130,14 +186,17 @@
 <script>
 import axios from "axios";
 import ChevronLeft from "@/components/icons/ChevronLeft.vue";
+import ChevronRight from "@/components/icons/ChevronRight.vue";
 import HeartOutline from "@/components/icons/HeartOutline.vue";
 import MapPin from "@/components/icons/MapPin.vue";
 import Building from "@/components/icons/Building.vue";
+import defaultProfile from "@/assets/images/default_profile.png";
 
 export default {
   name: "PropertyDetailPanel",
   components: {
     ChevronLeft,
+    ChevronRight,
     HeartOutline,
     MapPin,
     Building,
@@ -145,35 +204,32 @@ export default {
   props: {
     property: { type: Object, required: true },
   },
-  emits: ["close"],
+  emits: ["close", "open-all-reviews", "open-reviews"],
   computed: {
     allImages() {
-      // DTO의 images가 있으면 그걸 우선
       const arr = Array.isArray(this.property?.images)
         ? this.property.images
         : [];
-
-      // fallback(예전 구조)
       const main = this.property?.image ? [this.property.image] : [];
       const subs = Array.isArray(this.property?.subImages)
         ? this.property.subImages
         : [];
-
       const merged = arr.length ? arr : [...main, ...subs];
-
-      // 중복 제거 + 빈값 제거
       return Array.from(new Set(merged)).filter(Boolean);
     },
     mainImage() {
       return this.allImages[0] || this.property?.image || "";
     },
-    // 화면에 보이는 서브 썸네일은 최대 4장
     subThumbs() {
-      return this.allImages.slice(1, 5); // 2~5번째(최대 4장)
+      return this.allImages.slice(1, 5);
     },
     remainingCount() {
-      // 전체가 5장 초과면 (main 1 + thumbs 4) 이후 개수
       return Math.max(0, this.allImages.length - 5);
+    },
+
+    // 리뷰 5개 이상이면 더보기 버튼
+    showReviewMore() {
+      return (this.reviewsTotal || 0) >= 5;
     },
   },
   data() {
@@ -181,6 +237,12 @@ export default {
       listings: [],
       listingsLoading: false,
       listingsError: "",
+
+      // reviews
+      reviews: [],
+      reviewsTotalCount: 0,
+      reviewsLoading: false,
+      reviewsError: "",
     };
   },
   watch: {
@@ -188,6 +250,7 @@ export default {
       immediate: true,
       handler() {
         this.fetchListings();
+        this.fetchReviewsPreview(); // 추가
       },
     },
   },
@@ -195,6 +258,7 @@ export default {
     toggleListingLike(item) {
       item.isLiked = !item.isLiked;
     },
+
     async fetchListings() {
       const aptSeq = this.property?.aptSeq;
       if (!aptSeq) return;
@@ -216,7 +280,46 @@ export default {
       }
     },
 
-    // VARCHAR → number 처리
+    // 리뷰 5개 프리뷰 가져오기
+    async fetchReviewsPreview() {
+      const aptSeq = this.property?.aptSeq;
+      if (!aptSeq) return;
+
+      this.reviewsLoading = true;
+      this.reviewsError = "";
+      this.reviews = [];
+      this.reviewsTotalCount = 0;
+
+      try {
+        const { data } = await axios.get(`/reviews/${aptSeq}`, {
+          params: { limit: 2, offset: 0 },
+        });
+
+        this.reviewsTotalCount = Number(data?.totalCount || 0);
+        this.reviews = Array.isArray(data?.reviews) ? data.reviews : [];
+      } catch (e) {
+        console.error(e);
+        this.reviewsError = "리뷰를 불러오지 못했어요.";
+      } finally {
+        this.reviewsLoading = false;
+      }
+    },
+    resolveImg(profileImg) {
+      return profileImg && profileImg.trim() ? profileImg : defaultProfile;
+    },
+    onImgError(e) {
+      e.target.src = defaultProfile;
+    },
+
+    openAllReviews() {
+      // 부모가 패널 전환하도록 이벤트만 던짐
+      this.$emit("open-all-reviews", {
+        aptSeq: this.property?.aptSeq,
+        aptName: this.property?.name,
+      });
+    },
+
+    // --- util ---
     toNumber(v) {
       if (v == null) return null;
       const s = String(v).trim();
@@ -224,18 +327,14 @@ export default {
       const n = Number(s);
       return Number.isFinite(n) ? n : null;
     },
-
-    // ㎡ → 평
     toPyeong(area) {
       const n = Number(area);
       if (!Number.isFinite(n)) return "-";
       return (n / 3.305785).toFixed(1);
     },
-
     formatMoney(v) {
       const n = this.toNumber(v);
       if (n == null) return "-";
-
       if (n >= 10000) {
         const eok = Math.floor(n / 10000);
         const rest = n % 10000;
@@ -243,7 +342,6 @@ export default {
       }
       return `${n}만원`;
     },
-
     formatListingPrice(item) {
       if (item.type === "월세") {
         const dep = item.deposit ? this.formatMoney(item.deposit) : "0만원";
@@ -252,11 +350,29 @@ export default {
       }
       return `${item.type} ${this.formatMoney(item.price)}`;
     },
+
+    // 프로필 이미지 경로 처리 (서버가 /uploads/... 처럼 주는 케이스 대응)
+    profileSrc(path) {
+      if (!path) return "/images/default_profile.png"; // 너네 기본 이미지로 교체해도 됨
+      // 이미 http로 내려오면 그대로
+      if (String(path).startsWith("http")) return path;
+      return path; // "/uploads/xxx.png" 형태면 그대로 사용
+    },
+
+    formatDate(v) {
+      if (!v) return "";
+      // "2025-12-23 10:11:12" / ISO 둘 다 대충 처리
+      const s = String(v).replace(" ", "T");
+      const d = new Date(s);
+      if (Number.isNaN(d.getTime())) return String(v).slice(0, 10);
+      return d.toISOString().slice(0, 10);
+    },
   },
 };
 </script>
 
 <style scoped>
+/* --- 기존 스타일 그대로 --- */
 .property-detail-panel {
   position: absolute;
   left: 277px;
@@ -431,7 +547,7 @@ export default {
   font-size: 14px;
   font-weight: 600;
   color: #000000;
-  margin: 0 0 10px 0;
+  margin: 0;
 }
 
 .chart-placeholder,
@@ -443,10 +559,7 @@ export default {
   text-align: center;
 }
 
-.heart-icon {
-  color: var(--tothezip-brown-07);
-}
-
+/* --- listings 기존 --- */
 .listings-area {
   display: flex;
   flex-direction: column;
@@ -526,5 +639,182 @@ export default {
 
 .listing-heart-icon {
   color: var(--tothezip-brown-07);
+}
+
+/* 리뷰 헤더(제목 + 화살표) */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.chevron-right-icon {
+  color: var(--tothezip-brown-07);
+}
+
+/* 리뷰 리스트 */
+.reviews-area {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reviews-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.review-item {
+  display: flex;
+  gap: 10px;
+  border: 1px solid var(--tothezip-brown-01);
+  border-radius: 12px;
+  padding: 10px;
+  background: #fff;
+}
+
+.review-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1px solid var(--tothezip-brown-01);
+}
+
+.review-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.review-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stars {
+  display: inline-flex;
+  gap: 2px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.star {
+  opacity: 0.25;
+}
+
+.star.filled {
+  opacity: 1;
+}
+
+.review-date {
+  font-family: "Pretendard", sans-serif;
+  font-size: 10px;
+  color: var(--tothezip-gray-04);
+  white-space: nowrap;
+}
+
+.review-content {
+  margin: 6px 0 0 0;
+  font-family: "Pretendard", sans-serif;
+  font-size: 12px;
+  color: #000;
+  line-height: 1.35;
+  word-break: break-word;
+}
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.reviews-more-button {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--tothezip-brown-07);
+}
+
+.chevron-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--tothezip-brown-07);
+}
+
+.reviews-more-button:hover .chevron-icon {
+  opacity: 0.7;
+}
+
+.reviews-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.review-item {
+  display: flex;
+  gap: 10px;
+  border: 1px solid var(--tothezip-brown-01);
+  border-radius: 12px;
+  padding: 10px;
+  background: #fff;
+}
+
+.avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1px solid var(--tothezip-brown-01);
+  flex-shrink: 0;
+}
+
+.review-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.review-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+
+.stars {
+  display: inline-flex;
+  gap: 1px;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.star {
+  opacity: 0.25;
+}
+
+.star.filled {
+  opacity: 1;
+}
+
+.content {
+  margin-top: 6px;
+  font-family: "Pretendard", sans-serif;
+  font-size: 11px;
+  color: #000;
+  line-height: 1.35;
+  word-break: break-word;
 }
 </style>

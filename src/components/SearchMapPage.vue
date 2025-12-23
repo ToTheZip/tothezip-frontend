@@ -31,10 +31,19 @@
 
     <!-- 매물 상세 패널 -->
     <PropertyDetailPanel
-      v-if="selectedProperty"
+      v-if="selectedProperty && !showReviewPanel"
       :property="selectedProperty"
       @close="closeDetailPanel"
       @toggle-like="toggleLike"
+      @open-reviews="openReviewsPanel"
+    />
+
+    <!-- 전체 리뷰 패널 -->
+    <ReviewListPanel
+      v-if="selectedProperty && showReviewPanel"
+      :apt-seq="selectedProperty.aptSeq"
+      :building-name="selectedProperty.name"
+      @close="closeReviewsPanel"
     />
   </div>
 </template>
@@ -45,6 +54,7 @@ import { KakaoMap, KakaoMapMarker } from "vue3-kakao-maps";
 import FilterTag from "@/components/search/FilterTag.vue";
 import PropertyCard from "@/components/search/PropertyCard.vue";
 import PropertyDetailPanel from "@/components/search/PropertyDetailPanel.vue";
+import ReviewListPanel from "@/components/search/ReviewListPanel.vue";
 
 export default {
   name: "SearchMapPage",
@@ -54,6 +64,7 @@ export default {
     FilterTag,
     PropertyCard,
     PropertyDetailPanel,
+    ReviewListPanel,
   },
   data() {
     return {
@@ -68,6 +79,7 @@ export default {
 
       loading: false,
       errorMessage: "",
+      showReviewPanel: false,
     };
   },
   mounted() {
@@ -236,17 +248,25 @@ export default {
       return tags;
     },
 
-    selectProperty(property) {
-      this.selectedProperty = property;
-
-      // 지도 중심 이동
-      if (property?.latitude && property?.longitude) {
-        this.center = { lat: property.latitude, lng: property.longitude };
-      }
+    openReviewsPanel() {
+      this.showReviewPanel = true;
+    },
+    closeReviewsPanel() {
+      this.showReviewPanel = false;
     },
 
     closeDetailPanel() {
       this.selectedProperty = null;
+      this.showReviewPanel = false; // 같이 초기화
+    },
+
+    selectProperty(property) {
+      this.selectedProperty = property;
+      this.showReviewPanel = false; // 새 건물 선택 시 상세부터
+
+      if (property?.latitude && property?.longitude) {
+        this.center = { lat: property.latitude, lng: property.longitude };
+      }
     },
 
     toggleLike() {
