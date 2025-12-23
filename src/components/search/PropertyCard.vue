@@ -43,8 +43,13 @@
 </template>
 
 <script>
+import axios from "axios";
+import { useAuthStore } from "@/stores/auth";
+
 import Star from "@/components/icons/Star.vue";
 import MapPin from "@/components/icons/MapPin.vue";
+
+const API_BASE = import.meta.env.VITE_API_BASE;
 
 export default {
   name: "PropertyCard",

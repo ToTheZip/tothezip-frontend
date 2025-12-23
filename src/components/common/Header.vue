@@ -43,7 +43,7 @@
               <span class="hello-text">님, 안녕하세요!</span>
             </div>
 
-            <button class="icon-button" title="관심 매물">
+            <button class="icon-button" title="관심 매물" @click="goFavorites">
               <svg
                 width="24"
                 height="24"
@@ -156,8 +156,10 @@ export default {
       ui.toggleFavoriteCalendar();
     },
     goFavorites() {
-      // 네 라우트에 맞게 수정
-      this.$router.push("/favorite");
+      const ui = useUIStore();
+      ui.setSearchMode("FAVORITE");
+
+      this.$router.push("/search");
     },
     goCalendar() {
       this.$router.push("/user/calendar");
