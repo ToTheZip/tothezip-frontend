@@ -2,7 +2,8 @@
   <div class="search-map-page">
     <div class="map-container">
       <KakaoMap
-        style="width: 100%; height: 100%"
+        width="100%"
+        height="100%"
         :lat="center.lat"
         :lng="center.lng"
         :level="level"
@@ -10,7 +11,18 @@
         :scrollwheel="true"
         :zoomable="true"
         @onLoadKakaoMap="onLoadKakaoMap"
-      />
+      >
+        <!-- 유효한 좌표가 있는 매물만 마커로 표시 -->
+        <KakaoMapMarker
+          v-for="prop in validProperties"
+          :key="prop.id"
+          :lat="prop.latitude"
+          :lng="prop.longitude"
+          :image="markerImageConfig"
+          :clickable="true"
+          @onClickKakaoMapMarker="selectProperty(prop)"
+        />
+      </KakaoMap>
     </div>
 
     <!-- 왼쪽 검색 결과 사이드바 -->
@@ -20,7 +32,13 @@
       </div>
 
       <div class="results-list">
+        <!-- 목록이 없을 경우 안내 메시지 -->
+        <div v-if="properties.length === 0 && !loading" class="no-results">
+          검색 결과가 없습니다.
+        </div>
+        
         <PropertyCard
+          v-else
           v-for="property in properties"
           :key="property.id"
           :property="property"
@@ -56,6 +74,10 @@ import PropertyCard from "@/components/search/PropertyCard.vue";
 import PropertyDetailPanel from "@/components/search/PropertyDetailPanel.vue";
 import ReviewListPanel from "@/components/search/ReviewListPanel.vue";
 
+import loginDozip from "@/assets/images/login_dozip.png";
+
+const API_BASE = import.meta.env.VITE_API_BASE;
+
 export default {
   name: "SearchMapPage",
   components: {
@@ -80,7 +102,23 @@ export default {
       loading: false,
       errorMessage: "",
       showReviewPanel: false,
+
+      // 커스텀 마커 이미지 설정
+      markerImageConfig: {
+        imageSrc: loginDozip,
+        imageWidth: 100,
+        imageHeight: 100,
+        imageOption: {}, // 기본값 사용
+      },
     };
+  },
+  computed: {
+    // 좌표가 유효한 매물만 필터링 (마커 렌더링용)
+    validProperties() {
+      return this.properties.filter(
+        (p) => p.latitude && p.longitude && !isNaN(p.latitude) && !isNaN(p.longitude)
+      );
+    },
   },
   mounted() {
     this.fetchSearchResults();
@@ -104,57 +142,45 @@ export default {
         if (!searchData) {
           this.properties = [];
           this.filterTags = [];
-          this.errorMessage =
-            "검색 조건이 없습니다. 검색바에서 다시 검색해주세요.";
+          this.errorMessage = "검색 조건이 없습니다. 검색바에서 다시 검색해주세요.";
           return;
         }
 
         this.filterTags = this.makeFilterTags(searchData);
         const req = this.makeRequestBody(searchData);
 
-        const { data } = await axios.post("/property/search", req);
+        const { data } = await axios.post(`${API_BASE}/property/search`, req);
 
         this.properties = (data || []).map((b) => {
-          const allImages = Array.isArray(b.images)
-            ? b.images.filter(Boolean)
-            : [];
+          const allImages = Array.isArray(b.images) ? b.images.filter(Boolean) : [];
           const main = b.imageUrl || allImages[0] || "";
-          const subs =
-            allImages.length > 0 ? allImages.filter((x) => x !== main) : [];
+          const subs = allImages.length > 0 ? allImages.filter((x) => x !== main) : [];
 
           return {
-            // 공통
             id: b.aptSeq,
             aptSeq: b.aptSeq,
-
             name: b.aptName,
             address: b.roadAddress,
             rating: b.propertyRating,
             tags: b.tags || [],
             buildYear: b.buildYear,
             isLiked: false,
-
-            // 카드용 대표 이미지
             image: main,
-
             images: allImages.length ? allImages : main ? [main] : [],
-
             subImages: subs.slice(0, 4),
             totalImages: allImages.length ? allImages.length : main ? 1 : 0,
-
             minDealType: b.minDealType || "",
             minPrice: b.minPrice ?? null,
             minDeposit: b.minDeposit ?? null,
-
-            // 지도 이동용
-            latitude: b.latitude,
-            longitude: b.longitude,
+            latitude: Number(b.latitude),
+            longitude: Number(b.longitude),
           };
         });
 
+        // 검색 결과가 있고 첫 번째 매물의 좌표가 유효하면 지도 중심 이동
         if (this.properties.length > 0) {
           const first = this.properties[0];
-          if (first?.latitude && first?.longitude) {
+          if (first.latitude && first.longitude) {
             this.center = { lat: first.latitude, lng: first.longitude };
           }
         }
@@ -174,17 +200,13 @@ export default {
         sido: searchData.sido || "",
         gugun: searchData.gugun || "",
         dong: searchData.dong || "",
-
-        // 아파트 선택했으면 aptSeq로 정확하게 검색
         aptSeq: prop?.aptSeq || "",
         aptName: prop?.aptName || "",
-
         nearSubway: !!opt.nearSubway,
         nearSchool: !!opt.nearSchool,
         nearHospital: !!opt.nearHospital,
         nearCulture: !!opt.nearCulture,
         dealType: opt.dealType || [],
-
         depositMin: opt.depositMin,
         depositMax: opt.depositMax,
         monthlyRentMin: opt.monthlyRentMin,
@@ -193,7 +215,6 @@ export default {
         jeonseMax: opt.jeonseMax,
         buyMin: opt.buyMin,
         buyMax: opt.buyMax,
-
         areaMin: opt.areaMin,
         areaMax: opt.areaMax,
         floorMin: opt.floorMin,
@@ -202,7 +223,6 @@ export default {
         buildYearMax: opt.buildYearMax,
         ratingMin: opt.ratingMin,
         ratingMax: opt.ratingMax,
-
         limit: 50,
         offset: 0,
       };
@@ -213,35 +233,19 @@ export default {
       const tags = [];
       let id = 1;
 
-      if (searchData.location)
-        tags.push({ id: id++, label: searchData.location });
-
+      if (searchData.location) tags.push({ id: id++, label: searchData.location });
       if (opt.nearSubway) tags.push({ id: id++, label: "역세권" });
       if (opt.nearSchool) tags.push({ id: id++, label: "학세권" });
       if (opt.nearHospital) tags.push({ id: id++, label: "병세권" });
       if (opt.nearCulture) tags.push({ id: id++, label: "문세권" });
-
       (opt.dealType || []).forEach((d) => tags.push({ id: id++, label: d }));
 
       if (opt.areaMin != null || opt.areaMax != null)
-        tags.push({
-          id: id++,
-          label: `${opt.areaMin ?? 0}평~${opt.areaMax ?? "∞"}평`,
-        });
-
+        tags.push({ id: id++, label: `${opt.areaMin ?? 0}평~${opt.areaMax ?? "∞"}평` });
       if (opt.floorMin != null || opt.floorMax != null)
-        tags.push({
-          id: id++,
-          label: `${opt.floorMin ?? 0}층~${opt.floorMax ?? "∞"}층`,
-        });
-
+        tags.push({ id: id++, label: `${opt.floorMin ?? 0}층~${opt.floorMax ?? "∞"}층` });
       if (opt.buildYearMin != null || opt.buildYearMax != null)
-        tags.push({
-          id: id++,
-          label: `${opt.buildYearMin ?? 0}년~${opt.buildYearMax ?? "현재"}년`,
-        });
-
-      // 선택된 아파트 표시(선택형)
+        tags.push({ id: id++, label: `${opt.buildYearMin ?? 0}년~${opt.buildYearMax ?? "현재"}년` });
       if (searchData.property?.aptName)
         tags.push({ id: id++, label: searchData.property.aptName });
 
@@ -260,12 +264,14 @@ export default {
       this.showReviewPanel = false; // 같이 초기화
     },
 
-    selectProperty(property) {
+    selectProperty(property) {  
       this.selectedProperty = property;
       this.showReviewPanel = false; // 새 건물 선택 시 상세부터
 
       if (property?.latitude && property?.longitude) {
         this.center = { lat: property.latitude, lng: property.longitude };
+        // 마커 클릭 시 줌 레벨 조정 (선택 사항)
+        // this.level = 3; 
       }
     },
 
@@ -280,7 +286,7 @@ export default {
 <style scoped>
 .search-map-page {
   width: 100%;
-  height: 100%;
+  height: 100vh; /* 화면 전체 높이 사용 */
   position: relative;
   overflow: hidden;
 }
@@ -330,5 +336,12 @@ export default {
   content: "";
   display: block;
   height: 32px;
+}
+
+.no-results {
+  padding: 20px;
+  text-align: center;
+  color: #888;
+  font-size: 14px;
 }
 </style>
