@@ -31,11 +31,14 @@
         :has-button="true"
         :button-text="emailStep === 'verified' ? '완료' : '인증'"
         :button-disabled="
-          emailLoading || !formData.email || emailStep === 'verified'
+          emailLoading ||
+          !formData.email ||
+          !emailValid ||
+          emailStep === 'verified'
         "
         @button-click="handleEmailVerifyFlow"
-        :helper-text="emailHelperText"
-        :helper-type="emailHelperType"
+        :helper-text="emailHelperTextComputed"
+        :helper-type="emailHelperTypeComputed"
       />
 
       <!-- 인증코드 입력 (메일 발송 후 표시) -->
@@ -63,6 +66,8 @@
         @right-icon-click="showPassword = !showPassword"
         custom-class="password-group"
         input-class="password-input"
+        :helper-text="passwordHelperText"
+        :helper-type="passwordHelperType"
       />
 
       <FormInput
@@ -98,6 +103,9 @@ import FormInput from "./FormInput.vue";
 
 const API_BASE = import.meta.env.VITE_API_BASE;
 
+const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+const PW_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^\w\s]).{8,20}$/;
+
 export default {
   name: "SignupForm",
   components: { ProfileImageUpload, FormInput },
@@ -129,6 +137,39 @@ export default {
     };
   },
   computed: {
+    passwordHelperText() {
+      if (!this.formData.password) return "";
+      if (!this.passwordValid) {
+        return "8~20자, 영문/숫자/특수문자를 각각 1개 이상 포함해야 합니다.";
+      }
+      return "사용 가능한 비밀번호입니다.";
+    },
+    passwordHelperType() {
+      if (!this.formData.password) return "";
+      return this.passwordValid ? "success" : "error";
+    },
+
+    emailHelperTextComputed() {
+      const email = (this.formData.email || "").trim();
+      if (!email) return "";
+      if (this.emailStep !== "verified" && !this.emailValid) {
+        return "이메일 형식이 올바르지 않습니다. 예) test@example.com";
+      }
+      return this.emailHelperText;
+    },
+    emailHelperTypeComputed() {
+      const email = (this.formData.email || "").trim();
+      if (!email) return "";
+      if (this.emailStep !== "verified" && !this.emailValid) return "error";
+      return this.emailHelperType;
+    },
+
+    emailValid() {
+      return EMAIL_REGEX.test((this.formData.email || "").trim());
+    },
+    passwordValid() {
+      return PW_REGEX.test(this.formData.password || "");
+    },
     passwordMismatch() {
       return (
         this.formData.password &&
@@ -143,6 +184,8 @@ export default {
         !this.formData.password
       )
         return true;
+      if (!this.emailValid) return true;
+      if (!this.passwordValid) return true;
       if (this.passwordMismatch) return true;
       if (this.emailStep !== "verified") return true;
       return false;
@@ -171,6 +214,14 @@ export default {
     async handleEmailVerifyFlow() {
       const email = (this.formData.email || "").trim();
       if (!email) return;
+
+      if (!EMAIL_REGEX.test(email)) {
+        this.emailStep = "idle";
+        this.emailHelperText =
+          "이메일 형식이 올바르지 않습니다. 예) test@example.com";
+        this.emailHelperType = "error";
+        return;
+      }
 
       this.emailLoading = true;
       this.emailHelperText = "";

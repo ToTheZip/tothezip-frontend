@@ -8,7 +8,6 @@
 
       <!-- RIGHT: Detail Content -->
       <main class="detail-main">
-        
         <!-- Loading State -->
         <div class="detail-card loading-state" v-if="isLoading">
           <div class="spinner"></div>
@@ -17,7 +16,6 @@
 
         <!-- Loaded Content -->
         <article class="detail-card" v-else-if="notice">
-          
           <!-- Header -->
           <header class="detail-header">
             <div class="header-top">
@@ -31,10 +29,9 @@
 
             <div class="meta-row">
               <div class="meta-left">
-                <span class="meta-icon">👁️</span>
                 <span class="meta-text">조회수 {{ notice.views }}</span>
               </div>
-              
+
               <!-- 관심 청약 버튼 -->
               <div class="meta-right" v-if="notice.type === '청약'">
                 <button
@@ -45,7 +42,7 @@
                 >
                   <HeartFill v-if="liked" class="icon" />
                   <HeartOutline v-else class="icon" />
-                  <span class="label">{{ liked ? '찜 완료' : '찜하기' }}</span>
+                  <span class="label">{{ liked ? "찜 완료" : "찜하기" }}</span>
                 </button>
               </div>
             </div>
@@ -57,7 +54,6 @@
           <div class="detail-body">
             <!-- 텍스트 분석하여 타입별로 다르게 렌더링 -->
             <template v-for="(block, idx) in formattedContent" :key="idx">
-              
               <!-- 1. 섹션 타이틀 (예: "? 청약 공고 안내") -->
               <h3 v-if="block.type === 'title'" class="body-section-title">
                 {{ block.text }}
@@ -67,13 +63,20 @@
               <div v-else-if="block.type === 'list-item'" class="info-row">
                 <span class="info-bullet"></span>
                 <div class="info-content">
-                  <span class="info-label" v-if="block.label">{{ block.label }}</span>
+                  <span class="info-label" v-if="block.label">{{
+                    block.label
+                  }}</span>
                   <span class="info-value">{{ block.value }}</span>
                 </div>
               </div>
 
               <!-- 3. 링크 버튼 (URL이 포함된 줄) -->
-              <a v-else-if="block.type === 'link'" :href="block.url" target="_blank" class="link-card">
+              <a
+                v-else-if="block.type === 'link'"
+                :href="block.url"
+                target="_blank"
+                class="link-card"
+              >
                 <span class="link-icon">🔗</span>
                 <div class="link-text">
                   <span class="link-label">관련 링크 바로가기</span>
@@ -92,7 +95,6 @@
               <p v-else class="body-text">
                 {{ block.text }}
               </p>
-
             </template>
           </div>
 
@@ -114,7 +116,6 @@
             <button class="back-btn" @click="goList">목록으로 돌아가기</button>
           </div>
         </div>
-
       </main>
     </div>
   </div>
@@ -168,7 +169,7 @@ export default {
 
         // 2. 섹션 타이틀 감지 (?, ■, [ ] 등으로 시작)
         if (/^[?■\[]/.test(line) && line.length < 40) {
-           return { type: "title", text: line.replace(/^[?■]\s*/, "") };
+          return { type: "title", text: line.replace(/^[?■]\s*/, "") };
         }
 
         // 3. 리스트 아이템 감지 (•, -, * 등으로 시작)
@@ -177,10 +178,10 @@ export default {
           // "항목: 값" 형태 분리
           if (content.includes(":")) {
             const [label, ...rest] = content.split(":");
-            return { 
-              type: "list-item", 
-              label: label.trim() + ":", 
-              value: rest.join(":").trim() 
+            return {
+              type: "list-item",
+              label: label.trim() + ":",
+              value: rest.join(":").trim(),
             };
           }
           return { type: "list-item", label: "", value: content };
@@ -243,11 +244,14 @@ export default {
 
       try {
         if (has) {
-          await fetch(`${API_BASE}/favorite?type=청약&referenceId=${noticeId}`, {
-            method: "DELETE",
-            headers: { Authorization: `Bearer ${auth.accessToken}` },
-            credentials: "include",
-          });
+          await fetch(
+            `${API_BASE}/favorite?type=청약&referenceId=${noticeId}`,
+            {
+              method: "DELETE",
+              headers: { Authorization: `Bearer ${auth.accessToken}` },
+              credentials: "include",
+            }
+          );
         } else {
           await fetch(`${API_BASE}/favorite`, {
             method: "POST",
@@ -260,7 +264,7 @@ export default {
           });
         }
       } catch (e) {
-        this.liked = has; 
+        this.liked = has;
       }
     },
     async loadAll() {
@@ -448,8 +452,12 @@ export default {
   background: var(--tothezip-orange-04);
   border-color: var(--tothezip-orange-04);
 }
-.favorite-btn.liked .icon { color: #fff; }
-.favorite-btn.liked .label { color: #fff; }
+.favorite-btn.liked .icon {
+  color: #fff;
+}
+.favorite-btn.liked .label {
+  color: #fff;
+}
 
 .divider {
   border: none;
@@ -537,16 +545,18 @@ export default {
   border-radius: 16px;
   text-decoration: none;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
 }
 
 .link-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 16px rgba(0,0,0,0.06);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.06);
   border-color: var(--tothezip-orange-04);
 }
 
-.link-icon { font-size: 20px; }
+.link-icon {
+  font-size: 20px;
+}
 
 .link-text {
   flex: 1;
@@ -599,7 +609,6 @@ export default {
   color: var(--tothezip-gray-06);
 }
 
-
 /* ----------- Footer ----------- */
 .detail-footer {
   display: flex;
@@ -630,15 +639,34 @@ export default {
 
 /* ----------- Responsive ----------- */
 @media (max-width: 1024px) {
-  .content-wrapper { flex-direction: column; padding: 40px 20px; }
-  .sidebar-area { width: 100%; position: static; margin-bottom: 24px; }
-  .detail-card { padding: 40px 32px; }
+  .content-wrapper {
+    flex-direction: column;
+    padding: 40px 20px;
+  }
+  .sidebar-area {
+    width: 100%;
+    position: static;
+    margin-bottom: 24px;
+  }
+  .detail-card {
+    padding: 40px 32px;
+  }
 }
 
 @media (max-width: 768px) {
-  .detail-title { font-size: 24px; }
-  .detail-card { padding: 32px 20px; border-radius: 16px; }
-  .info-row { flex-direction: column; gap: 4px; }
-  .info-label { width: 100%; }
+  .detail-title {
+    font-size: 24px;
+  }
+  .detail-card {
+    padding: 32px 20px;
+    border-radius: 16px;
+  }
+  .info-row {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .info-label {
+    width: 100%;
+  }
 }
 </style>

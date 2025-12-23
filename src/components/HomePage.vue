@@ -37,13 +37,20 @@
     <div class="main-content">
       <div class="container">
         <!-- Recommended Properties Section -->
-        <PropertiesSection
+        <!-- <PropertiesSection
           :isLoggedIn="isLoggedIn"
           :region-name="regionName"
           :tags="propertyTags"
           :properties="displayProperties"
           @tag-click="filterProperties"
           @property-click="goToPropertyDetail"
+          @property-go-map="goRecoMap"
+        /> -->
+        <PropertiesSection
+          :isLoggedIn="isLoggedIn"
+          :region-name="regionName"
+          :tags="propertyTags"
+          :properties="displayProperties"
           @property-go-map="goRecoMap"
         />
 
@@ -111,17 +118,36 @@ export default {
 
   methods: {
     goRecoMap(aptSeq) {
-      const ui = useUIStore();
-
+      // ✅ SearchMapPage가 바로 쓰도록 reco payload 저장
       const payload = {
-        regionNames: this.regionName,
+        regionName: this.regionName,
         facilityTags: this.propertyTags,
-        aptSeqList: this.displayProperties.map((p) => p.id),
+
+        // ✅ preferences(희망 평수/층수)도 같이 저장해서 SearchMapPage 태그로 표시
+        preferences: this.preferences || null,
+        // 예: { minArea: 20, maxArea: 34, minFloor: 5, maxFloor: 20 }
+
+        // ✅ 추천 리스트 자체를 통째로 넣는 게 제일 안정적 (추가 API 호출 필요 없음)
+        properties: (this.displayProperties || []).map((p) => ({
+          aptSeq: p.id,
+          aptName: p.name,
+          roadAddress: p.address,
+          propertyRating: p.rating,
+          tags: p.tags || [],
+          imageUrl: p.image || "",
+          latitude: p.latitude,
+          longitude: p.longitude,
+          buildYear: p.buildYear,
+          minDealType: p.minDealType,
+          minPrice: p.minPrice,
+          minDeposit: p.minDeposit,
+        })),
+
+        aptSeqList: (this.displayProperties || []).map((p) => p.id),
       };
 
       sessionStorage.setItem("tothezip_reco", JSON.stringify(payload));
 
-      ui.setSearchMode("RECO");
       this.$router.push({
         path: "/search",
         query: { mode: "reco", open: String(aptSeq) },

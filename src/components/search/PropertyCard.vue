@@ -1,39 +1,39 @@
 <template>
   <div class="property-grid-card" @click="$emit('click')">
     <div class="card-image-area">
-      <div class="card-image-box">
-        <img
-          :src="property.image"
-          :alt="property.name"
-          class="card-image"
-          @error="onImageError"
-        />
-        <div class="image-overlay"></div>
-      </div>
+      <img
+        :src="property.image"
+        :alt="property.name"
+        class="card-image"
+        @error="onImageError"
+      />
+      <div class="image-gradient"></div>
 
       <div class="rating-badge">
         <Star class="star-icon" />
         <span class="rating-text">{{ property.rating }}</span>
       </div>
+
+      <div class="price-overlay">
+        <span class="price-text">{{ priceLabel }}</span>
+      </div>
     </div>
 
     <div class="card-content">
-      <div class="price-section">
-        <p class="price-text">{{ priceLabel }}</p>
-      </div>
+      <h3 class="property-name">{{ property.name }}</h3>
 
-      <div class="name-section">
-        <h3 class="property-name">{{ property.name }}</h3>
-      </div>
-
-      <div class="location-section">
+      <div class="location-row">
         <MapPin class="location-icon" />
         <span class="location-text">{{ property.address }}</span>
       </div>
 
-      <div class="tags-section">
-        <span v-for="tag in property.tags" :key="tag" class="property-tag">
-          #{{ tag }}
+      <div class="tags-row">
+        <span
+          v-for="tag in property.tags.slice(0, 3)"
+          :key="tag"
+          class="property-tag"
+        >
+          {{ tag }}
         </span>
       </div>
     </div>
@@ -67,24 +67,21 @@ export default {
           const eok = Math.floor(n / 10000);
           const rest = n % 10000;
           if (rest === 0) return `${eok}억`;
-          return `${eok}억 ${rest}만원`;
+          return `${eok}억 ${rest}만`;
         }
-        return `${n}만원`;
+        return `${n}만`;
       };
 
       if (t === "월세") {
-        const dep = d != null ? formatMoney(d) : "0만원";
+        const dep = d != null ? formatMoney(d) : "0";
         const rent = formatMoney(p);
-        return `월세 ${dep} / ${rent}`;
+        return `${dep} / ${rent}`;
       }
 
-      return `${t} ${formatMoney(p)}`;
+      return `${formatMoney(p)}`;
     },
   },
   methods: {
-    goToMap() {
-      this.$emit("go-map", this.property.id);
-    },
     onImageError(e) {
       e.target.onerror = null;
       e.target.src =
@@ -99,217 +96,252 @@ export default {
   display: flex;
   flex-direction: column;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: 16px;
+  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border-radius: 20px;
   background: #ffffff;
-  border: 1.5px solid var(--tothezip-brown-02);
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(75, 29, 28, 0.06);
+  box-shadow: 0 4px 12px rgba(75, 29, 28, 0.08),
+    0 0 0 1px rgba(75, 29, 28, 0.04);
+  position: relative;
+}
+
+.property-grid-card::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 20px;
+  padding: 2px;
+  background: linear-gradient(
+    135deg,
+    var(--tothezip-orange-04),
+    var(--tothezip-orange-05),
+    var(--tothezip-ruby-05)
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.property-grid-card:hover::before {
+  opacity: 1;
 }
 
 .property-grid-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(75, 29, 28, 0.12);
-  border-color: var(--tothezip-orange-04);
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 16px 32px rgba(227, 93, 55, 0.2),
+    0 0 0 1px rgba(227, 93, 55, 0.1);
 }
 
 .property-grid-card:hover .card-image {
-  transform: scale(1.1);
+  transform: scale(1.15);
 }
 
-.property-grid-card:hover .image-overlay {
-  opacity: 0.2;
+.property-grid-card:hover .image-gradient {
+  opacity: 0.7;
 }
 
 .property-grid-card:hover .property-name {
-  color: var(--tothezip-orange-05);
+  color: var(--tothezip-orange-06);
+}
+
+.property-grid-card:hover .price-overlay {
+  background: linear-gradient(
+    135deg,
+    var(--tothezip-orange-05),
+    var(--tothezip-orange-06)
+  );
 }
 
 .card-image-area {
   position: relative;
   width: 100%;
-  aspect-ratio: 1;
-  overflow: hidden;
-  background: var(--tothezip-beige-01);
-}
-
-.card-image-box {
-  width: 100%;
-  height: 100%;
-  position: relative;
+  height: 200px;
+  padding: 12px;
+  background: linear-gradient(
+    135deg,
+    var(--tothezip-beige-02),
+    var(--tothezip-beige-03)
+  );
 }
 
 .card-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 12px;
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.image-overlay {
+.image-gradient {
   position: absolute;
-  inset: 0;
+  inset: 12px;
+  border-radius: 12px;
   background: linear-gradient(
-    135deg,
-    var(--tothezip-orange-04) 0%,
-    var(--tothezip-orange-05) 100%
+    180deg,
+    transparent 0%,
+    transparent 40%,
+    rgba(0, 0, 0, 0.3) 100%
   );
-  opacity: 0;
-  transition: opacity 0.3s ease;
+  opacity: 0.5;
+  transition: opacity 0.35s ease;
   pointer-events: none;
 }
 
 .rating-badge {
   position: absolute;
-  left: 10px;
-  top: 10px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--tothezip-brown-02);
-  border-radius: 20px;
-  padding: 4px 8px;
+  right: 20px;
+  top: 20px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.98),
+    rgba(255, 255, 255, 0.95)
+  );
+  backdrop-filter: blur(12px);
+  border: none;
+  border-radius: 24px;
+  padding: 6px 10px;
   display: flex;
   align-items: center;
-  gap: 3px;
-  box-shadow: 0 2px 8px rgba(75, 29, 28, 0.15);
-  transition: all 0.2s ease;
+  gap: 4px;
+  box-shadow: 0 4px 12px rgba(178, 34, 34, 0.2), 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
   z-index: 10;
 }
 
 .property-grid-card:hover .rating-badge {
-  background: rgba(255, 255, 255, 1);
-  transform: scale(1.05);
+  transform: scale(1.08) translateY(-2px);
+  box-shadow: 0 6px 16px rgba(178, 34, 34, 0.3), 0 3px 6px rgba(0, 0, 0, 0.15);
 }
 
 .star-icon {
   color: var(--tothezip-ruby-06);
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
+  filter: drop-shadow(0 1px 2px rgba(178, 34, 34, 0.3));
 }
 
 .rating-text {
   font-family: "Pretendard", sans-serif;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 800;
   color: var(--tothezip-ruby-06);
   line-height: 1;
+  letter-spacing: -0.02em;
 }
 
-.card-content {
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: #ffffff;
-}
-
-.price-section {
-  margin: 0;
+.price-overlay {
+  position: absolute;
+  left: 20px;
+  bottom: 20px;
+  background: linear-gradient(
+    135deg,
+    var(--tothezip-orange-06),
+    var(--tothezip-orange-05)
+  );
+  backdrop-filter: blur(8px);
+  padding: 8px 14px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(227, 93, 55, 0.3), 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  transition: all 0.3s ease;
 }
 
 .price-text {
   font-family: "Pretendard", sans-serif;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--tothezip-orange-06);
-  margin: 0;
-  letter-spacing: -0.02em;
+  font-size: 16px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.03em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-.name-section {
-  margin: 0;
+.card-content {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #ffffff;
 }
 
 .property-name {
   font-family: "Pretendard", sans-serif;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
-  color: var(--tothezip-brown-09);
+  color: var(--tothezip-brown-10);
   margin: 0;
-  white-space: nowrap;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color 0.2s ease;
-  letter-spacing: -0.01em;
+  transition: color 0.3s ease;
+  letter-spacing: -0.02em;
+  min-height: 44px;
 }
 
-.location-section {
+.location-row {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  padding: 8px 0;
+  border-top: 1px solid var(--tothezip-beige-02);
 }
 
 .location-icon {
-  width: 13px;
-  height: 13px;
-  color: var(--tothezip-brown-05);
+  width: 14px;
+  height: 14px;
+  color: var(--tothezip-orange-05);
   flex-shrink: 0;
 }
 
 .location-text {
   font-family: "Pretendard", sans-serif;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
-  color: var(--tothezip-brown-05);
+  color: var(--tothezip-brown-06);
   line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.tags-section {
+.tags-row {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   flex-wrap: wrap;
-  margin-top: 2px;
 }
 
 .property-tag {
   font-family: "Pretendard", sans-serif;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--tothezip-brown-04);
-  background: rgba(244, 236, 231, 0.6);
+  color: var(--tothezip-brown-07);
+  background: linear-gradient(
+    135deg,
+    var(--tothezip-beige-01),
+    var(--tothezip-beige-02)
+  );
   border: 1px solid var(--tothezip-brown-02);
-  border-radius: 10px;
-  padding: 3px 7px;
+  border-radius: 8px;
+  padding: 4px 10px;
   display: inline-flex;
   align-items: center;
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
   letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 
 .property-grid-card:hover .property-tag {
-  background: var(--tothezip-orange-01);
-  border-color: var(--tothezip-orange-03);
-  color: var(--tothezip-orange-06);
-}
-
-/* 부모 컨테이너에 이 스타일을 적용하세요 */
-.properties-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  padding: 16px;
-}
-
-/* 반응형 */
-@media (max-width: 1200px) {
-  .properties-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-@media (max-width: 900px) {
-  .properties-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 600px) {
-  .properties-grid {
-    grid-template-columns: 1fr;
-  }
+  background: linear-gradient(
+    135deg,
+    var(--tothezip-orange-02),
+    var(--tothezip-orange-01)
+  );
+  border-color: var(--tothezip-orange-04);
+  color: var(--tothezip-orange-07);
+  transform: translateY(-1px);
 }
 </style>

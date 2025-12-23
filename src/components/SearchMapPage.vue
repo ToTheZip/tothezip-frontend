@@ -1,5 +1,6 @@
 <template>
   <div class="search-map-page">
+    <!-- ================== MAP ================== -->
     <div class="map-container">
       <KakaoMap
         style="width: 100%; height: 100%"
@@ -23,22 +24,42 @@
       </KakaoMap>
     </div>
 
-    <!-- 왼쪽 검색 결과 사이드바 -->
+    <!-- ================== SIDEBAR ================== -->
     <div class="search-results-sidebar">
-      <div class="filter-tags-section">
-        <FilterTag v-if="ui.searchMode === 'FAVORITE'" label="❤️ 찜한 매물" />
-        <FilterTag
-          v-else
-          v-for="tag in filterTags"
-          :key="tag.id"
-          :label="tag.label"
-        />
+      <!-- 전체 | 추천 토글 (찜 진입이면 둘다 disabled) -->
+      <div class="mode-toggle">
+        <button
+          class="mode-btn"
+          :class="{ active: tabMode === 'ALL' }"
+          @click="setTabMode('ALL')"
+        >
+          전체
+        </button>
+        <button
+          class="mode-btn"
+          :class="{ active: tabMode === 'RECO' }"
+          @click="setTabMode('RECO')"
+        >
+          추천
+        </button>
       </div>
 
+      <!-- TAGS -->
+      <div class="filter-tags-section">
+        <FilterTag v-if="entryMode === 'FAVORITE'" label="❤️ 찜한 매물" />
+        <template v-else>
+          <FilterTag
+            v-for="tag in filterTags"
+            :key="tag.id"
+            :label="tag.label"
+          />
+        </template>
+      </div>
+
+      <!-- LIST -->
       <div class="results-list">
-        <!-- 목록이 없을 경우 안내 메시지 -->
         <div v-if="properties.length === 0 && !loading" class="no-results">
-          검색 결과가 없습니다.
+          {{ errorMessage || "검색 결과가 없습니다." }}
         </div>
 
         <PropertyCard
@@ -50,7 +71,7 @@
       </div>
     </div>
 
-    <!-- 매물 상세 패널 -->
+    <!-- ================== PANELS ================== -->
     <PropertyDetailPanel
       v-if="selectedProperty && !showReviewPanel"
       :property="selectedProperty"
@@ -59,7 +80,6 @@
       @open-reviews="openReviewsPanel"
     />
 
-    <!-- 전체 리뷰 패널 -->
     <ReviewListPanel
       v-if="reviewTarget && showReviewPanel"
       :apt-seq="reviewTarget.aptSeq"
@@ -71,15 +91,14 @@
 
 <script>
 import axios from "axios";
-import { useUIStore } from "@/stores/ui";
-import { useAuthStore } from "@/stores/auth";
-
 import { KakaoMap, KakaoMapMarker } from "vue3-kakao-maps";
+
 import FilterTag from "@/components/search/FilterTag.vue";
 import PropertyCard from "@/components/search/PropertyCard.vue";
 import PropertyDetailPanel from "@/components/search/PropertyDetailPanel.vue";
 import ReviewListPanel from "@/components/search/ReviewListPanel.vue";
 import loginDozip from "@/assets/images/login_dozip.png";
+import { useAuthStore } from "@/stores/auth";
 
 const API_BASE = import.meta.env.VITE_API_BASE;
 
@@ -95,26 +114,32 @@ export default {
   },
   data() {
     return {
+      // map
       center: { lat: 37.572, lng: 126.991 },
       level: 4,
       mapRef: null,
 
+      // ui state
+      entryMode: "ALL", // ALL | RECO | FAVORITE
+      tabMode: "ALL", // ALL | RECO | NONE
       selectedProperty: null,
+      showReviewPanel: false,
 
+      // data
       filterTags: [],
       properties: [],
 
       loading: false,
       errorMessage: "",
+
       showReviewPanel: false,
       reviewTarget: null,
 
-      // 커스텀 마커 이미지 설정
       markerImageConfig: {
         imageSrc: loginDozip,
         imageWidth: 100,
         imageHeight: 100,
-        imageOption: {}, // 기본값 사용
+        imageOption: {},
       },
     };
   },
@@ -122,10 +147,9 @@ export default {
     this.fetchSearchResults();
   },
   computed: {
-    ui() {
-      return useUIStore();
+    toggleLocked() {
+      return false;
     },
-    // 좌표가 유효한 매물만 필터링 (마커 렌더링용)
     validProperties() {
       return this.properties.filter(
         (p) =>
@@ -133,86 +157,138 @@ export default {
       );
     },
   },
-  mounted() {
-    this.applyModeFromRoute();
+
+  async mounted() {
+    await this.initByRoute();
   },
+
   watch: {
-    "$route.query.mode"() {
-      this.applyModeFromRoute();
-    },
-    "$route.query.open"() {
-      // open만 바뀌어도 상세 오픈 재시도
-      if (this.$route.query.mode === "reco") {
-        this.openByQuery();
-      }
+    "$route.query": {
+      deep: true,
+      handler() {
+        this.initByRoute();
+      },
     },
   },
 
   methods: {
-    applyModeFromRoute() {
-      const mode = this.$route.query.mode;
+    // ---------------------------
+    // INIT (entry 결정)
+    // ---------------------------
+    async initByRoute() {
+      const mode = String(this.$route.query.mode || "all").toLowerCase();
+      const open = this.$route.query.open
+        ? String(this.$route.query.open)
+        : null;
+
+      this.selectedProperty = null;
+      this.showReviewPanel = false;
+      this.errorMessage = "";
 
       if (mode === "favorite") {
-        this.ui.setSearchMode("FAVORITE");
-        this.fetchFavoriteProperties();
+        this.entryMode = "FAVORITE";
+        this.tabMode = "NONE";
+        await this.fetchFavoriteProperties();
         return;
       }
 
       if (mode === "reco") {
-        this.ui.setSearchMode("RECO");
-        this.fetchRecoProperties(); // 추천 목록 로드
+        this.entryMode = "RECO";
+        this.tabMode = "RECO";
+        await this.fetchRecoProperties();
+        this.openPropertyIfRequested(open);
+       // this.ui.setSearchMode("RECO");
         return;
       }
 
-      // 기본 진입(= 홈 검색/일반 검색)
-      this.ui.setSearchMode("SEARCH");
-      this.fetchSearchResults();
+      this.entryMode = "ALL";
+      this.tabMode = "ALL";
+      await this.fetchSearchResults();
+      this.openPropertyIfRequested(open);
     },
 
-    async fetchRecoProperties() {
+    setTabMode(next) {
+      if (next === "ALL") {
+        this.entryMode = "ALL"; // 진입 상태도 전환
+        this.tabMode = "ALL";
+        this.selectedProperty = null;
+        this.showReviewPanel = false;
+        this.fetchSearchResults();
+        return;
+      }
+
+
+      if (next === "RECO") {
+        this.entryMode = "RECO";
+        this.tabMode = "RECO";
+        this.selectedProperty = null;
+        this.showReviewPanel = false;
+        this.fetchRecoProperties();
+        return;
+      }
+    },
+
+    openPropertyIfRequested(openAptSeq) {
+      if (!openAptSeq) return;
+      const found = this.properties.find(
+        (p) => String(p.aptSeq) === String(openAptSeq)
+      );
+      if (found) this.selectProperty(found);
+
+    },
+
+    onLoadKakaoMap(map) {
+      this.mapRef = map;
+      map.setDraggable(true);
+      map.setZoomable(true);
+    },
+
+    // ---------------------------
+    // FAVORITE (찜)
+    // ---------------------------
+    async fetchFavoriteProperties() {
       this.loading = true;
-      this.errorMessage = "";
-      this.selectedProperty = null;
+      this.properties = [];
+      this.filterTags = [];
 
       try {
-        const raw = sessionStorage.getItem("tothezip_reco");
-        const reco = raw ? JSON.parse(raw) : null;
-
-        if (
-          !reco ||
-          !Array.isArray(reco.aptSeqList) ||
-          reco.aptSeqList.length === 0
-        ) {
-          this.properties = [];
-          this.filterTags = [];
-          this.errorMessage =
-            "추천 매물 정보가 없습니다. 홈에서 다시 시도해주세요.";
+        const auth = useAuthStore();
+        if (!auth.accessToken) {
+          alert("로그인이 필요합니다.");
+          this.$router.push("/login");
           return;
         }
 
-        // 상단 태그(사용자 관심/선호도 기반)
-        // regionNames + facilityTags를 filterTags로 구성
-        const tags = [];
-        let id = 1;
-
-        if (reco.regionNames) tags.push({ id: id++, label: reco.regionNames });
-        (reco.facilityTags || []).forEach((t) =>
-          tags.push({ id: id++, label: t })
+        /**
+         * 여기서 "찜 목록"을 실제 매물 카드 리스트로 보여주려면
+         * 1) 백엔드가 aptSeq 리스트를 주거나
+         * 2) 아예 매물 요약 DTO 리스트를 주는 엔드포인트가 있어야 함.
+         *
+         * 아래는 "aptSeq 리스트"를 받는다고 가정한 호출:
+         * GET /favorite/aptseq?type=매물
+         */
+        const { data: aptSeqs } = await axios.get(
+          `${API_BASE}/favorite/aptseq`,
+          {
+            params: { type: "매물" },
+            withCredentials: true,
+            headers: { Authorization: `Bearer ${auth.accessToken}` },
+          }
         );
 
-        // 원하면 첫 태그로 "사용자 관심" 같은 라벨도 추가 가능
-        // tags.unshift({ id: id++, label: "사용자 관심 기반" });
+        if (!Array.isArray(aptSeqs) || aptSeqs.length === 0) {
+          this.properties = [];
+          this.errorMessage = "찜한 매물이 없습니다.";
+          return;
+        }
 
-        this.filterTags = tags;
-
-        // 추천 aptSeqList -> 각각 상세 조회로 변환
         const responses = await Promise.all(
-          reco.aptSeqList.map((aptSeq) =>
-            axios.post(`${API_BASE}/property/search`, {
-              aptSeq: String(aptSeq),
-              limit: 1,
-              offset: 0,
-            })
+          aptSeqs.map((aptSeq) =>
+            axios.post(
+              `${API_BASE}/property/search`,
+              { aptSeq: String(aptSeq), limit: 1, offset: 0 },
+              { withCredentials: true }
+            )
           )
         );
 
@@ -220,46 +296,86 @@ export default {
           .map((r) => (Array.isArray(r.data) ? r.data[0] : r.data))
           .filter(Boolean);
 
-        this.properties = buildings.map((b) => {
-          const allImages = Array.isArray(b.images)
-            ? b.images.filter(Boolean)
-            : [];
-          const main = b.imageUrl || allImages[0] || "";
+        this.properties = buildings.map(this.mapBuildingToCard(true));
 
-          return {
-            id: b.aptSeq,
-            aptSeq: b.aptSeq,
-            name: b.aptName,
-            address: b.roadAddress,
-            rating: b.propertyRating,
-            tags: b.tags || [],
-            buildYear: b.buildYear,
-            isLiked: false,
-            image: main,
-            images: allImages.length ? allImages : main ? [main] : [],
-            minDealType: b.minDealType || "",
-            minPrice: b.minPrice ?? null,
-            minDeposit: b.minDeposit ?? null,
-            latitude: Number(b.latitude),
-            longitude: Number(b.longitude),
-          };
-        });
+        this.moveCenterToFirst();
+      } catch (e) {
+        console.error(e);
+        this.errorMessage = "찜한 매물을 불러오지 못했습니다.";
+      } finally {
+        this.loading = false;
+      }
+    },
 
-        // open 파라미터 있으면 상세 자동 오픈
-        this.openByQuery();
+    // ---------------------------
+    // RECO (추천)
+    // ---------------------------
+    async fetchRecoProperties() {
+      this.loading = true;
+      this.properties = [];
+      this.filterTags = [];
 
-        // 지도 센터도 open 매물 기준으로 맞추기(없으면 첫 매물)
-        const openSeq = this.$route.query.open;
-        const target =
-          (openSeq &&
-            this.properties.find(
-              (p) => String(p.aptSeq) === String(openSeq)
-            )) ||
-          this.properties[0];
+      try {
+        const raw = sessionStorage.getItem("tothezip_reco");
+        const reco = raw ? JSON.parse(raw) : null;
 
-        if (target?.latitude && target?.longitude) {
-          this.center = { lat: target.latitude, lng: target.longitude };
+        if (!reco) {
+          this.errorMessage =
+            "추천 데이터가 없습니다. 홈에서 다시 시도해주세요.";
+          return;
         }
+
+        // 태그 구성: 관심/선호 기반 (지역 + 시설 + 평수 + 층수)
+        this.filterTags = this.makeRecoTags(reco);
+
+        // 추천 매물 리스트 구성 (가능하면 payload에 properties를 통째로 넣는 게 제일 좋음)
+        if (Array.isArray(reco.properties) && reco.properties.length > 0) {
+          // 홈에서 이미 DTO를 내려받은 상태면 그대로 사용
+          this.properties = reco.properties.map((p) => ({
+            id: p.aptSeq ?? p.id,
+            aptSeq: p.aptSeq ?? p.id,
+            name: p.aptName ?? p.name,
+            address: p.roadAddress ?? p.address,
+            rating: p.propertyRating ?? p.rating,
+            tags: p.tags || [],
+            buildYear: p.buildYear,
+            isLiked: true,
+            image: p.imageUrl || p.image || "",
+            images: p.images || [],
+            minDealType: p.minDealType || "",
+            minPrice: p.minPrice ?? null,
+            minDeposit: p.minDeposit ?? null,
+            latitude: Number(p.latitude),
+            longitude: Number(p.longitude),
+          }));
+        } else {
+          // aptSeqList로 다시 조회
+          const aptSeqList = Array.isArray(reco.aptSeqList)
+            ? reco.aptSeqList
+            : [];
+          if (aptSeqList.length === 0) {
+            this.errorMessage = "추천 매물 목록이 비어있습니다.";
+            return;
+          }
+
+          const responses = await Promise.all(
+            aptSeqList.map((aptSeq) =>
+              axios.post(`${API_BASE}/property/search`, {
+                aptSeq: String(aptSeq),
+                limit: 1,
+                offset: 0,
+              })
+            )
+          );
+
+          const buildings = responses
+            .map((r) => (Array.isArray(r.data) ? r.data[0] : r.data))
+            .filter(Boolean);
+
+          this.properties = buildings.map(this.mapBuildingToCard(true));
+        }
+
+        this.moveCenterToFirst();
       } catch (e) {
         console.error(e);
         this.errorMessage = "추천 매물을 불러오지 못했습니다.";
@@ -268,94 +384,61 @@ export default {
       }
     },
 
-    openByQuery() {
-      const openSeq = this.$route.query.open;
-      if (!openSeq) return;
+    makeRecoTags(reco) {
+      const tags = [];
+      let id = 1;
 
-      const found = this.properties.find(
-        (p) => String(p.aptSeq) === String(openSeq)
+      // 관심 지역
+      if (reco.regionName) tags.push({ id: id++, label: reco.regionName });
+
+      // 주변 시설 태그
+      (reco.facilityTags || []).forEach((t) =>
+        tags.push({ id: id++, label: t })
       );
-      if (found) {
-        this.selectProperty(found); // 기존 상세 오픈 로직 재사용
+
+      // 희망 평수/층수
+      const pref = reco.preferences || {};
+      if (pref.minArea != null || pref.maxArea != null) {
+        tags.push({
+          id: id++,
+          label: `희망 ${pref.minArea ?? 0}~${pref.maxArea ?? "∞"}평`,
+        });
       }
+      if (pref.minFloor != null || pref.maxFloor != null) {
+        tags.push({
+          id: id++,
+          label: `희망 ${pref.minFloor ?? 1}~${pref.maxFloor ?? "∞"}층`,
+        });
+      }
+
+      return tags;
     },
-    async fetchFavoriteProperties() {
+
+    // ---------------------------
+    // ALL (전체 검색)
+    // ---------------------------
+    async fetchSearchResults() {
       this.loading = true;
-      this.errorMessage = "";
-      this.selectedProperty = null;
+      this.properties = [];
+      this.filterTags = [];
 
       try {
-        const auth = useAuthStore();
+        // 기존 너 로직: sessionStorage에 있는 검색조건 사용
+        const raw = sessionStorage.getItem("tothezip_search");
+        const searchData = raw ? JSON.parse(raw) : null;
 
-        console.log("[FAV] accessToken exists?", !!auth.accessToken);
-        console.log(
-          "[FAV] accessToken head:",
-          auth.accessToken?.slice?.(0, 20)
-        );
-
-        if (!auth.accessToken) {
-          alert("로그인이 필요합니다.");
-          this.$router.push("/login");
+        if (!searchData) {
+          this.errorMessage =
+            "검색 조건이 없습니다. 홈에서 검색 후 이동해주세요.";
           return;
         }
 
-        // 1) 찜한 aptSeq 목록 가져오기 (백엔드: /favorite/aptseq)
-        console.log("[FAV] call GET /favorite/aptseq?type=매물");
+        this.filterTags = this.makeFilterTags(searchData);
 
-        const favRes = await axios.get(`${API_BASE}/favorite/aptseq`, {
-          params: { type: "매물" },
-          withCredentials: true,
-          headers: { Authorization: `Bearer ${auth.accessToken}` },
-        });
+        const req = this.makeRequestBody(searchData);
+        const { data } = await axios.post(`${API_BASE}/property/search`, req);
 
-        const aptSeqs = favRes.data;
-
-        console.log("[FAV] GET /favorite/aptseq status:", favRes.status);
-        console.log("[FAV] aptSeqs raw:", aptSeqs);
-
-        if (!Array.isArray(aptSeqs) || aptSeqs.length === 0) {
-          console.warn("[FAV] aptSeqs empty -> no favorites or type mismatch");
-          this.properties = [];
-          return;
-        }
-
-        // 2) aptSeq로 매물 상세(검색) 가져오기
-        console.log("[FAV] fetching properties count:", aptSeqs.length);
-
-        const responses = await Promise.all(
-          aptSeqs.map((aptSeq) => {
-            console.log("[FAV] POST /property/search aptSeq:", aptSeq);
-            return axios.post(
-              `${API_BASE}/property/search`,
-              { aptSeq: String(aptSeq), limit: 1, offset: 0 },
-              {
-                withCredentials: true,
-                headers: { Authorization: `Bearer ${auth.accessToken}` },
-              }
-            );
-          })
-        );
-
-        console.log(
-          "[FAV] search responses length:",
-          responses.length,
-          "first data:",
-          responses[0]?.data
-        );
-
-        const buildings = responses
-          .map((r, idx) => {
-            const d = r.data;
-            const one = Array.isArray(d) ? d[0] : d;
-            console.log(`[FAV] building[${idx}] parsed:`, one);
-            return one;
-          })
-          .filter(Boolean);
-
-        console.log("[FAV] buildings filtered length:", buildings.length);
-
-        // 3) 최종 매핑
-        this.properties = buildings.map((b) => {
+        this.properties = (data || []).map((b) => {
           const allImages = Array.isArray(b.images)
             ? b.images.filter(Boolean)
             : [];
@@ -372,82 +455,6 @@ export default {
             rating: b.propertyRating,
             tags: b.tags || [],
             buildYear: b.buildYear,
-            isLiked: true,
-            image: main,
-            images: allImages.length ? allImages : main ? [main] : [],
-            subImages: subs.slice(0, 4),
-            totalImages: allImages.length ? allImages.length : main ? 1 : 0,
-            minDealType: b.minDealType || "",
-            minPrice: b.minPrice ?? null,
-            minDeposit: b.minDeposit ?? null,
-            latitude: Number(b.latitude),
-            longitude: Number(b.longitude),
-          };
-        });
-
-        console.log("[FAV] final properties length:", this.properties.length);
-        console.log("[FAV] final properties sample:", this.properties[0]);
-
-        const first = this.properties[0];
-        if (first?.latitude && first?.longitude) {
-          this.center = { lat: first.latitude, lng: first.longitude };
-        }
-      } catch (e) {
-        console.error("[FAV] error:", e);
-        console.log(
-          "[FAV] error response:",
-          e?.response?.status,
-          e?.response?.data
-        );
-        this.errorMessage = "찜한 매물을 불러오지 못했습니다.";
-      } finally {
-        this.loading = false;
-      }
-    },
-    onLoadKakaoMap(map) {
-      this.mapRef = map;
-      map.setDraggable(true);
-      map.setZoomable(true);
-    },
-
-    async fetchSearchResults() {
-      this.loading = true;
-      this.errorMessage = "";
-      this.selectedProperty = null;
-
-      try {
-        const raw = sessionStorage.getItem("tothezip_search");
-        const searchData = raw ? JSON.parse(raw) : null;
-
-        if (!searchData) {
-          this.properties = [];
-          this.filterTags = [];
-          this.errorMessage =
-            "검색 조건이 없습니다. 검색바에서 다시 검색해주세요.";
-          return;
-        }
-
-        this.filterTags = this.makeFilterTags(searchData);
-        const req = this.makeRequestBody(searchData);
-
-        const { data } = await axios.post(`${API_BASE}/property/search`, req);
-
-        this.properties = (data || []).map((b) => {
-          const allImages = Array.isArray(b.images)
-            ? b.images.filter(Boolean)
-            : [];
-          const main = b.imageUrl || allImages[0] || "";
-          const subs =
-            allImages.length > 0 ? allImages.filter((x) => x !== main) : [];
-
-          return {
-            id: b.aptSeq,
-            aptSeq: b.aptSeq,
-            name: b.aptName,
-            address: b.roadAddress,
-            rating: b.propertyRating,
-            tags: b.tags || [],
-            buildYear: b.buildYear,
             isLiked: false,
             image: main,
             images: allImages.length ? allImages : main ? [main] : [],
@@ -461,13 +468,7 @@ export default {
           };
         });
 
-        // 검색 결과가 있고 첫 번째 매물의 좌표가 유효하면 지도 중심 이동
-        if (this.properties.length > 0) {
-          const first = this.properties[0];
-          if (first.latitude && first.longitude) {
-            this.center = { lat: first.latitude, lng: first.longitude };
-          }
-        }
+        this.moveCenterToFirst();
       } catch (e) {
         console.error(e);
         this.errorMessage = "검색 중 오류가 발생했습니다.";
@@ -476,6 +477,53 @@ export default {
       }
     },
 
+    // ---------------------------
+    // shared helpers
+    // ---------------------------
+    moveCenterToFirst() {
+      if (this.properties.length > 0) {
+        const first = this.properties[0];
+        if (first?.latitude && first?.longitude) {
+          this.center = { lat: first.latitude, lng: first.longitude };
+        }
+      }
+    },
+
+    mapBuildingToCard(isLikedDefault) {
+      return (b) => {
+        const allImages = Array.isArray(b.images)
+          ? b.images.filter(Boolean)
+          : [];
+        const main = b.imageUrl || allImages[0] || "";
+        const subs = allImages.length
+          ? allImages.filter((x) => x !== main)
+          : [];
+
+        return {
+          id: b.aptSeq,
+          aptSeq: b.aptSeq,
+          name: b.aptName,
+          address: b.roadAddress,
+          rating: b.propertyRating,
+          tags: b.tags || [],
+          buildYear: b.buildYear,
+          isLiked: !!isLikedDefault,
+          image: main,
+          images: allImages.length ? allImages : main ? [main] : [],
+          subImages: subs.slice(0, 4),
+          totalImages: allImages.length ? allImages.length : main ? 1 : 0,
+          minDealType: b.minDealType || "",
+          minPrice: b.minPrice ?? null,
+          minDeposit: b.minDeposit ?? null,
+          latitude: Number(b.latitude),
+          longitude: Number(b.longitude),
+        };
+      };
+    },
+
+    // ---------------------------
+    // existing tag builders
+    // ---------------------------
     makeRequestBody(searchData) {
       const opt = searchData.options || {};
       const prop = searchData.property || null;
@@ -546,6 +594,7 @@ export default {
       return tags;
     },
 
+
     openReviewsPanel(payload) {
       // payload: { aptSeq, name }
       this.reviewTarget = payload;
@@ -556,23 +605,18 @@ export default {
       this.showReviewPanel = false;
       this.reviewTarget = null;
     },
-
     closeDetailPanel() {
       this.selectedProperty = null;
-      this.showReviewPanel = false; // 같이 초기화
+      this.showReviewPanel = false;
     },
-
     selectProperty(property) {
       this.selectedProperty = property;
-      this.showReviewPanel = false; // 새 건물 선택 시 상세부터
+      this.showReviewPanel = false;
 
       if (property?.latitude && property?.longitude) {
         this.center = { lat: property.latitude, lng: property.longitude };
-        // 마커 클릭 시 줌 레벨 조정 (선택 사항)
-        // this.level = 3;
       }
     },
-
     toggleLike() {
       if (this.selectedProperty)
         this.selectedProperty.isLiked = !this.selectedProperty.isLiked;
@@ -777,19 +821,17 @@ export default {
 <style scoped>
 .search-map-page {
   width: 100%;
-  height: 100%;
+  height: 100vh;
+
   position: relative;
   overflow: hidden;
 }
-
 .map-container {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
 }
 
+/* sidebar */
 .search-results-sidebar {
   position: absolute;
   left: 0;
@@ -804,6 +846,37 @@ export default {
   overflow: hidden;
 }
 
+/* toggle */
+.mode-toggle {
+  display: flex;
+  gap: 8px;
+  padding: 10px 13px;
+  border-bottom: 1px solid rgba(163, 151, 143, 0.22);
+  background: #fff;
+}
+.mode-btn {
+  flex: 1;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--tothezip-brown-01);
+  background: #fff;
+  font-family: "Pretendard", sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--tothezip-gray-05);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.mode-btn.active {
+  background: var(--tothezip-beige-02);
+  color: #111;
+}
+.mode-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* tags */
 .filter-tags-section {
   flex: 0 0 auto;
   width: 100%;
@@ -815,6 +888,7 @@ export default {
   border-bottom: 1px solid var(--tothezip-brown-01);
 }
 
+/* list */
 .results-list {
   flex: 1 1 auto;
   min-height: 0;
@@ -822,13 +896,11 @@ export default {
   overflow-x: hidden;
   box-sizing: border-box;
 }
-
 .results-list::after {
   content: "";
   display: block;
   height: 32px;
 }
-
 .no-results {
   padding: 20px;
   text-align: center;
