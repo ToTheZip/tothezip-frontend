@@ -25,8 +25,6 @@ import logo from "@/assets/images/dozip_logo.png";
 import { loginApi } from "@/api/auth";
 import { useAuthStore } from "@/stores/auth";
 
-const API_BASE = import.meta.env.VITE_API_BASE;
-
 export default {
   name: "LoginPage",
   components: { LoginForm, ClickableLogo },
