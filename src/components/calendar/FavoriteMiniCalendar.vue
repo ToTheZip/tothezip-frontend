@@ -452,7 +452,7 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
   border: 2px solid var(--tothezip-beige-03);
   border-radius: 24px;
   box-shadow: 0 8px 24px rgba(75, 29, 28, 0.12);
-  z-index: 2000;
+  z-index: 9999;
   padding: 20px;
   font-family: "Pretendard", sans-serif;
   color: var(--tothezip-brown-09);

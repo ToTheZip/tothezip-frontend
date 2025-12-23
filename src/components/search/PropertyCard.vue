@@ -1,5 +1,10 @@
 <template>
-  <div class="property-grid-card" @click="$emit('click')">
+  <div
+    class="property-grid-card"
+    :class="{ selected }"
+    :data-aptseq="String(property.aptSeq)"
+    @click="$emit('click')"
+  >
     <div class="card-image-area">
       <img
         :src="property.image"
@@ -49,6 +54,7 @@ export default {
   components: { Star, MapPin },
   props: {
     property: { type: Object, required: true },
+    selected: { type: Boolean, default: false },
   },
   emits: ["click"],
   computed: {
@@ -343,5 +349,19 @@ export default {
   border-color: var(--tothezip-orange-04);
   color: var(--tothezip-orange-07);
   transform: translateY(-1px);
+}
+
+.property-grid-card.selected {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 28px rgba(227, 93, 55, 0.22),
+    0 0 0 2px rgba(227, 93, 55, 0.35);
+}
+
+.property-grid-card.selected::before {
+  opacity: 1; /* 선택되면 그라데이션 보더 고정 */
+}
+
+.property-grid-card.selected .property-name {
+  color: var(--tothezip-orange-06);
 }
 </style>
