@@ -482,6 +482,8 @@ export default {
         };
 
         this.reviews.unshift(newItem);
+        // ✅ 즉시 통계 반영 (현재 리스트 기준)
+        this.recalcStatsFromCurrentList();
         this.totalCount += 1;
 
         this.hasMore = this.totalCount > this.reviews.length;
@@ -525,6 +527,9 @@ export default {
     },
 
     async saveEdit() {
+      const target = this.reviews.find((x) => x.reviewId === this.editingId);
+      const prevRating = target ? Number(target.reviewRating) || 0 : 0;
+
       if (!this.editingId) return;
 
       const content = this.editContent.trim();
@@ -550,6 +555,8 @@ export default {
         if (target) {
           target.reviewContent = content;
           target.reviewRating = this.editRating;
+          // 즉시 통계 반영
+          this.recalcStatsFromCurrentList();
         }
 
         this.cancelEdit();
@@ -569,12 +576,16 @@ export default {
     async deleteReview(r) {
       if (!confirm("리뷰를 삭제할까요?")) return;
 
+      const prevRating = Number(r.reviewRating) || 0;
+
       try {
         await http.delete(`/reviews/${r.reviewId}`);
 
         this.reviews = this.reviews.filter((x) => x.reviewId !== r.reviewId);
         this.totalCount = Math.max(0, this.totalCount - 1);
         this.hasMore = this.totalCount > this.reviews.length;
+
+        this.recalcStatsFromCurrentList();
 
         // 편집중인 리뷰 삭제한 경우
         if (this.editingId === r.reviewId) this.cancelEdit();
@@ -608,7 +619,56 @@ export default {
 
       this.toastTimer = setTimeout(() => {
         this.showSuccessToast = false;
-      }, 2800); // 1.5초 후 사라짐
+      }, 2800);
+    },
+    recalcStatsFromCurrentList() {
+      const list = Array.isArray(this.reviews) ? this.reviews : [];
+      const total = Number(this.totalCount || 0);
+
+      const counts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      let sum = 0;
+      let n = 0;
+
+      for (const r of list) {
+        const rating = Math.min(5, Math.max(1, Number(r.reviewRating) || 0));
+        if (!rating) continue;
+        counts[rating] += 1;
+        sum += rating;
+        n += 1;
+      }
+
+      this.counts = counts;
+      this.avgRating = n ? sum / n : 0;
+    },
+
+    applyRatingDelta({ prevRating = null, nextRating = null }) {
+      const counts = { ...this.counts };
+
+      const dec = (v) => {
+        const k = Number(v);
+        if (k >= 1 && k <= 5)
+          counts[k] = Math.max(0, Number(counts[k] || 0) - 1);
+      };
+      const inc = (v) => {
+        const k = Number(v);
+        if (k >= 1 && k <= 5) counts[k] = Number(counts[k] || 0) + 1;
+      };
+
+      if (prevRating != null) dec(prevRating);
+      if (nextRating != null) inc(nextRating);
+
+      this.counts = counts;
+
+      const totalRatings =
+        counts[1] + counts[2] + counts[3] + counts[4] + counts[5];
+      const sum =
+        1 * counts[1] +
+        2 * counts[2] +
+        3 * counts[3] +
+        4 * counts[4] +
+        5 * counts[5];
+
+      this.avgRating = totalRatings ? sum / totalRatings : 0;
     },
   },
 };

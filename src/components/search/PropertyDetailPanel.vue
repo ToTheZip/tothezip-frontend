@@ -17,7 +17,15 @@
       <div class="images-area">
         <div class="main-image-wrapper">
           <div class="main-image-box">
-            <img :src="mainImage" :alt="property.name" class="main-image" />
+            <img
+              :src="mainImage"
+              :alt="property.name"
+              class="main-image"
+              @click.stop="
+                console.log('main clicked');
+                openGallery(0);
+              "
+            />
           </div>
         </div>
 
@@ -31,11 +39,13 @@
               :src="img"
               :alt="`${property.name} ${index + 2}`"
               class="sub-image"
+              @click="openGallery(index + 1)"
             />
 
             <div
               v-if="index === 3 && remainingCount > 0"
               class="image-more-overlay"
+              @click.stop="openGallery(index + 1)"
             >
               <span class="more-text">+ {{ remainingCount }}</span>
             </div>
@@ -192,6 +202,49 @@
       </div>
     </div>
   </div>
+  <teleport to="body">
+    <transition name="gallery">
+      <div v-if="galleryOpen" class="gallery-backdrop" @click="closeGallery">
+        <div class="gallery-modal" @click.stop>
+          <!-- 닫기 -->
+          <button class="gallery-close" type="button" @click="closeGallery">
+            ✕
+          </button>
+
+          <!-- 좌/우 -->
+          <button
+            class="gallery-nav left"
+            type="button"
+            @click.stop="prevImage"
+            aria-label="이전 이미지"
+          >
+            ‹
+          </button>
+
+          <img
+            class="gallery-image"
+            :src="allImages[galleryIndex]"
+            :alt="`${property.name} image ${galleryIndex + 1}`"
+          />
+
+          <button
+            class="gallery-nav right"
+            type="button"
+            @click.stop="nextImage"
+            aria-label="다음 이미지"
+          >
+            ›
+          </button>
+
+          <div class="gallery-footer">
+            <span class="gallery-count">
+              {{ galleryIndex + 1 }} / {{ allImages.length }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </transition>
+  </teleport>
 </template>
 
 <script>
@@ -249,23 +302,21 @@ export default {
     remainingCount() {
       return Math.max(0, this.allImages.length - 5);
     },
-
-    // 리뷰 5개 이상이면 더보기 버튼
-    showReviewMore() {
-      return (this.reviewsTotal || 0) >= 5;
-    },
   },
   data() {
     return {
       listings: [],
       listingsLoading: false,
       listingsError: "",
-      
+
       // reviews
       reviews: [],
       reviewsTotalCount: 0,
       reviewsLoading: false,
       reviewsError: "",
+
+      galleryOpen: false,
+      galleryIndex: 0,
     };
   },
   watch: {
@@ -273,9 +324,13 @@ export default {
       immediate: true,
       handler() {
         this.fetchListings();
-        this.fetchReviewsPreview(); // 추가
+        this.fetchReviewsPreview();
       },
     },
+  },
+  beforeUnmount() {
+    window.removeEventListener("keydown", this.onGalleryKeydown);
+    document.body.style.overflow = "";
   },
   methods: {
     /* =========================
@@ -373,7 +428,7 @@ export default {
       }
     },
 
-    // 리뷰 5개 프리뷰 가져오기
+    // 리뷰 2개 프리뷰 가져오기
     async fetchReviewsPreview() {
       const aptSeq = this.property?.aptSeq;
       if (!aptSeq) return;
@@ -446,7 +501,7 @@ export default {
 
     // 프로필 이미지 경로 처리 (서버가 /uploads/... 처럼 주는 케이스 대응)
     profileSrc(path) {
-      if (!path) return "/images/default_profile.png"; // 너네 기본 이미지로 교체해도 됨
+      if (!path) return "/images/default_profile.png";
       // 이미 http로 내려오면 그대로
       if (String(path).startsWith("http")) return path;
       return path; // "/uploads/xxx.png" 형태면 그대로 사용
@@ -454,29 +509,55 @@ export default {
 
     formatDate(v) {
       if (!v) return "";
-      // "2025-12-23 10:11:12" / ISO 둘 다 대충 처리
       const s = String(v).replace(" ", "T");
       const d = new Date(s);
       if (Number.isNaN(d.getTime())) return String(v).slice(0, 10);
       return d.toISOString().slice(0, 10);
     },
-  },
+    openGallery(startIndex = 0) {
+      if (!this.allImages.length) return;
+      this.galleryIndex = Math.min(
+        Math.max(0, Number(startIndex) || 0),
+        this.allImages.length - 1
+      );
+      this.galleryOpen = true;
+      console.log(
+        "galleryOpen:",
+        this.galleryOpen,
+        "index:",
+        this.galleryIndex,
+        "len:",
+        this.allImages.length
+      );
 
-  // 프로필 이미지 경로 처리 (서버가 /uploads/... 처럼 주는 케이스 대응)
-  profileSrc(path) {
-    if (!path) return "/images/default_profile.png"; // 너네 기본 이미지로 교체해도 됨
-    // 이미 http로 내려오면 그대로
-    if (String(path).startsWith("http")) return path;
-    return path; // "/uploads/xxx.png" 형태면 그대로 사용
-  },
+      window.addEventListener("keydown", this.onGalleryKeydown);
+      document.body.style.overflow = "hidden"; // 뒤 스크롤 방지
+    },
 
-  formatDate(v) {
-    if (!v) return "";
-    // "2025-12-23 10:11:12" / ISO 둘 다 대충 처리
-    const s = String(v).replace(" ", "T");
-    const d = new Date(s);
-    if (Number.isNaN(d.getTime())) return String(v).slice(0, 10);
-    return d.toISOString().slice(0, 10);
+    closeGallery() {
+      this.galleryOpen = false;
+      window.removeEventListener("keydown", this.onGalleryKeydown);
+      document.body.style.overflow = "";
+    },
+
+    prevImage() {
+      if (!this.allImages.length) return;
+      this.galleryIndex =
+        (this.galleryIndex - 1 + this.allImages.length) % this.allImages.length;
+    },
+
+    nextImage() {
+      if (!this.allImages.length) return;
+      this.galleryIndex = (this.galleryIndex + 1) % this.allImages.length;
+    },
+
+    onGalleryKeydown(e) {
+      if (!this.galleryOpen) return;
+
+      if (e.key === "Escape") this.closeGallery();
+      if (e.key === "ArrowLeft") this.prevImage();
+      if (e.key === "ArrowRight") this.nextImage();
+    },
   },
 };
 </script>
@@ -1008,5 +1089,98 @@ export default {
   color: #000;
   line-height: 1.35;
   word-break: break-word;
+}
+</style>
+
+<style>
+.gallery-backdrop {
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 2147483647;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.gallery-modal {
+  position: relative;
+  width: min(92vw, 720px);
+  height: min(82vh, 520px);
+  background: rgba(20, 20, 20, 0.95);
+  border-radius: 16px;
+  overflow: hidden;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gallery-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.gallery-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  cursor: pointer;
+}
+
+.gallery-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 26px;
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gallery-nav.left {
+  left: 10px;
+}
+.gallery-nav.right {
+  right: 10px;
+}
+
+.gallery-footer {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 12px;
+}
+
+.gallery-enter-active,
+.gallery-leave-active {
+  transition: opacity 0.18s ease;
+}
+.gallery-enter-from,
+.gallery-leave-to {
+  opacity: 0;
 }
 </style>
