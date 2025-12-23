@@ -123,7 +123,10 @@
       <!-- 리뷰 -->
       <div class="section-divider">
         <div class="section-title-row">
-          <h3 class="section-title">리뷰</h3>
+          <h3 class="section-title">
+            리뷰
+            <span class="review-count">({{ reviewsTotalCount }})</span>
+          </h3>
 
           <button
             class="reviews-more-button"
@@ -704,10 +707,12 @@ export default {
 
 .star {
   opacity: 0.25;
+  color: #cfc5bf;
 }
 
 .star.filled {
   opacity: 1;
+  color: var(--tothezip-ruby-06);
 }
 
 .review-date {
@@ -725,6 +730,14 @@ export default {
   line-height: 1.35;
   word-break: break-word;
 }
+
+.review-count {
+  margin-left: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--tothezip-gray-04);
+}
+
 .section-title-row {
   display: flex;
   align-items: center;

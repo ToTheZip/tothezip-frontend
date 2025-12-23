@@ -301,10 +301,12 @@ export default {
 
 .star {
   opacity: 0.25;
+  color: #cfc5bf;
 }
 
 .star.filled {
   opacity: 1;
+  color: var(--tothezip-ruby-06);
 }
 
 .date {
