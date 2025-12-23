@@ -25,52 +25,18 @@
     </div>
 
     <!-- ================== SIDEBAR ================== -->
-    <div class="search-results-sidebar">
-      <!-- 전체 | 추천 토글 (찜 진입이면 둘다 disabled) -->
-      <div class="mode-toggle">
-        <button
-          class="mode-btn"
-          :class="{ active: tabMode === 'ALL' }"
-          @click="setTabMode('ALL')"
-        >
-          전체
-        </button>
-        <button
-          class="mode-btn"
-          :class="{ active: tabMode === 'RECO' }"
-          @click="setTabMode('RECO')"
-        >
-          추천
-        </button>
-      </div>
-
-      <!-- TAGS -->
-      <div class="filter-tags-section">
-        <FilterTag v-if="entryMode === 'FAVORITE'" label="❤️ 찜한 매물" />
-        <template v-else>
-          <FilterTag
-            v-for="tag in filterTags"
-            :key="tag.id"
-            :label="tag.label"
-          />
-        </template>
-      </div>
-
-      <!-- LIST -->
-      <div class="results-list" ref="listRef">
-        <div v-if="properties.length === 0 && !loading" class="no-results">
-          {{ errorMessage || "검색 결과가 없습니다." }}
-        </div>
-
-        <PropertyCard
-          v-for="property in properties"
-          :key="property.id"
-          :property="property"
-          :selected="String(property.aptSeq) === String(selectedAptSeq)"
-          @click="selectProperty(property)"
-        />
-      </div>
-    </div>
+    <SearchSidebar
+      ref="sidebarRef"
+      :entry-mode="entryMode"
+      :tab-mode="tabMode"
+      :filter-tags="filterTags"
+      :properties="properties"
+      :selected-apt-seq="selectedAptSeq"
+      :loading="loading"
+      :error-message="errorMessage"
+      @change-mode="setTabMode"
+      @select-property="selectProperty"
+    />
 
     <!-- ================== PANELS ================== -->
     <PropertyDetailPanel
@@ -101,8 +67,7 @@
 import axios from "axios";
 import { KakaoMap, KakaoMapMarker } from "vue3-kakao-maps";
 
-import FilterTag from "@/components/search/FilterTag.vue";
-import PropertyCard from "@/components/search/PropertyCard.vue";
+import SearchSidebar from "@/components/search/SearchSidebar.vue";
 import PropertyDetailPanel from "@/components/search/PropertyDetailPanel.vue";
 import ReviewListPanel from "@/components/search/ReviewListPanel.vue";
 import loginDozip from "@/assets/images/login_dozip.png";
@@ -115,8 +80,7 @@ export default {
   components: {
     KakaoMap,
     KakaoMapMarker,
-    FilterTag,
-    PropertyCard,
+    SearchSidebar,
     PropertyDetailPanel,
     ReviewListPanel,
   },
@@ -643,26 +607,10 @@ export default {
         this.center = { lat: property.latitude, lng: property.longitude };
       }
 
-      // 마커 클릭/카드 클릭 모두 리스트를 해당 카드로 스크롤
-      this.$nextTick(() => {
-        this.scrollToSelectedCard();
-      });
-    },
-    scrollToSelectedCard() {
-      const listEl = this.$refs.listRef;
-      if (!listEl || !this.selectedAptSeq) return;
-
-      // PropertyCard 최상단에 data-aptseq를 심어둘 거라서 그걸로 찾음
-      const cardEl = listEl.querySelector(
-        `[data-aptseq="${String(this.selectedAptSeq)}"]`
-      );
-      if (!cardEl) return;
-
-      // 리스트 컨테이너 안에서만 부드럽게 이동
-      cardEl.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-      });
+      // 사이드바의 scrollToCard 호출
+      if (this.$refs.sidebarRef && this.selectedAptSeq) {
+        this.$refs.sidebarRef.scrollToCard(this.selectedAptSeq);
+      }
     },
 
     toggleLike() {
@@ -684,82 +632,5 @@ export default {
 .map-container {
   position: absolute;
   inset: 0;
-}
-
-/* sidebar */
-.search-results-sidebar {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 270px;
-  height: 100%;
-  background: #ffffff;
-  display: flex;
-  flex-direction: column;
-  z-index: 100;
-  border-right: 1px solid rgba(163, 151, 143, 0.22);
-  overflow: hidden;
-}
-
-/* toggle */
-.mode-toggle {
-  display: flex;
-  gap: 8px;
-  padding: 10px 13px;
-  border-bottom: 1px solid rgba(163, 151, 143, 0.22);
-  background: #fff;
-}
-.mode-btn {
-  flex: 1;
-  height: 34px;
-  border-radius: 999px;
-  border: 1px solid var(--tothezip-brown-01);
-  background: #fff;
-  font-family: "Pretendard", sans-serif;
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--tothezip-gray-05);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.mode-btn.active {
-  background: var(--tothezip-beige-02);
-  color: #111;
-}
-.mode-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-/* tags */
-.filter-tags-section {
-  flex: 0 0 auto;
-  width: 100%;
-  min-height: 71px;
-  padding: 10px 13px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  border-bottom: 1px solid var(--tothezip-brown-01);
-}
-
-/* list */
-.results-list {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  box-sizing: border-box;
-}
-.results-list::after {
-  content: "";
-  display: block;
-  height: 32px;
-}
-.no-results {
-  padding: 20px;
-  text-align: center;
-  color: #888;
-  font-size: 14px;
 }
 </style>
