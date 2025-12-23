@@ -257,12 +257,12 @@ export default {
 
     closeDetailPanel() {
       this.selectedProperty = null;
-      this.showReviewPanel = false; // ✅ 같이 초기화
+      this.showReviewPanel = false; // 같이 초기화
     },
 
     selectProperty(property) {
       this.selectedProperty = property;
-      this.showReviewPanel = false; // ✅ 새 건물 선택 시 상세부터
+      this.showReviewPanel = false; // 새 건물 선택 시 상세부터
 
       if (property?.latitude && property?.longitude) {
         this.center = { lat: property.latitude, lng: property.longitude };

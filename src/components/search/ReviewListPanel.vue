@@ -120,7 +120,7 @@ export default {
           params: { limit: this.limit, offset: this.offset },
         });
 
-        // ✅ 백엔드 응답: { totalCount, hasMore, reviews }
+        // 백엔드 응답: { totalCount, hasMore, reviews }
         this.totalCount = Number(data?.totalCount || 0);
         this.hasMore = !!data?.hasMore;
         this.reviews = Array.isArray(data?.reviews) ? data.reviews : [];

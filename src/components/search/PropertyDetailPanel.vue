@@ -227,7 +227,7 @@ export default {
       return Math.max(0, this.allImages.length - 5);
     },
 
-    // ✅ 리뷰 5개 이상이면 더보기 버튼
+    // 리뷰 5개 이상이면 더보기 버튼
     showReviewMore() {
       return (this.reviewsTotal || 0) >= 5;
     },
@@ -238,7 +238,7 @@ export default {
       listingsLoading: false,
       listingsError: "",
 
-      // ✅ reviews
+      // reviews
       reviews: [],
       reviewsTotalCount: 0,
       reviewsLoading: false,
@@ -250,7 +250,7 @@ export default {
       immediate: true,
       handler() {
         this.fetchListings();
-        this.fetchReviewsPreview(); // ✅ 추가
+        this.fetchReviewsPreview(); // 추가
       },
     },
   },
@@ -280,7 +280,7 @@ export default {
       }
     },
 
-    // ✅ 리뷰 5개 프리뷰 가져오기
+    // 리뷰 5개 프리뷰 가져오기
     async fetchReviewsPreview() {
       const aptSeq = this.property?.aptSeq;
       if (!aptSeq) return;
@@ -641,7 +641,7 @@ export default {
   color: var(--tothezip-brown-07);
 }
 
-/* ✅ 리뷰 헤더(제목 + 화살표) */
+/* 리뷰 헤더(제목 + 화살표) */
 .section-header {
   display: flex;
   align-items: center;
@@ -653,7 +653,7 @@ export default {
   color: var(--tothezip-brown-07);
 }
 
-/* ✅ 리뷰 리스트 */
+/* 리뷰 리스트 */
 .reviews-area {
   display: flex;
   flex-direction: column;
