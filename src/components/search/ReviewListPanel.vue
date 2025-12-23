@@ -482,6 +482,8 @@ export default {
         };
 
         this.reviews.unshift(newItem);
+        // ✅ 즉시 통계 반영 (현재 리스트 기준)
+        this.recalcStatsFromCurrentList();
         this.totalCount += 1;
 
         this.hasMore = this.totalCount > this.reviews.length;
@@ -525,6 +527,9 @@ export default {
     },
 
     async saveEdit() {
+      const target = this.reviews.find((x) => x.reviewId === this.editingId);
+      const prevRating = target ? Number(target.reviewRating) || 0 : 0;
+
       if (!this.editingId) return;
 
       const content = this.editContent.trim();
@@ -550,6 +555,8 @@ export default {
         if (target) {
           target.reviewContent = content;
           target.reviewRating = this.editRating;
+          // 즉시 통계 반영
+          this.recalcStatsFromCurrentList();
         }
 
         this.cancelEdit();
@@ -569,12 +576,16 @@ export default {
     async deleteReview(r) {
       if (!confirm("리뷰를 삭제할까요?")) return;
 
+      const prevRating = Number(r.reviewRating) || 0;
+
       try {
         await http.delete(`/reviews/${r.reviewId}`);
 
         this.reviews = this.reviews.filter((x) => x.reviewId !== r.reviewId);
         this.totalCount = Math.max(0, this.totalCount - 1);
         this.hasMore = this.totalCount > this.reviews.length;
+
+        this.recalcStatsFromCurrentList();
 
         // 편집중인 리뷰 삭제한 경우
         if (this.editingId === r.reviewId) this.cancelEdit();
@@ -609,6 +620,71 @@ export default {
       this.toastTimer = setTimeout(() => {
         this.showSuccessToast = false;
       }, 2800); // 1.5초 후 사라짐
+    },
+    recalcStatsFromCurrentList() {
+      // 현재 화면에 들고 있는 reviews(보통 limit개) 기준으로 통계를 즉시 갱신
+      // (서버의 전체 통계와 100% 동일하진 않을 수 있지만 "즉시 반영" 목적엔 좋음)
+
+      const list = Array.isArray(this.reviews) ? this.reviews : [];
+      const total = Number(this.totalCount || 0);
+
+      // totalCount는 "전체 리뷰 수"이므로 그대로 두고,
+      // 현재 리스트에서 rating 분포를 계산할 때는
+      // "현재 리스트" 기준으로만 계산해서 보여줄지,
+      // 아니면 "전체" 기반을 유지할지 선택이 필요함.
+      //
+      // 여기서는 UX상 자연스럽게: "현재 리스트(화면)" 기준으로 즉시 보이도록 갱신.
+      // (서버 전체 분포가 꼭 필요하면 아래 2번 방법 참고)
+
+      const counts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      let sum = 0;
+      let n = 0;
+
+      for (const r of list) {
+        const rating = Math.min(5, Math.max(1, Number(r.reviewRating) || 0));
+        if (!rating) continue;
+        counts[rating] += 1;
+        sum += rating;
+        n += 1;
+      }
+
+      this.counts = counts;
+      this.avgRating = n ? sum / n : 0;
+
+      // totalCount는 "전체 리뷰 수"라서 그대로 유지하는 편이 일반적
+      // 다만 처음 페이지에서만 보는 화면이면 totalCount와 n이 같으니 문제 없음
+    },
+
+    // 특정 리뷰 1건의 rating 변경/추가/삭제를 "증분"으로 반영하고 싶으면 이 방식도 가능
+    applyRatingDelta({ prevRating = null, nextRating = null }) {
+      const counts = { ...this.counts };
+
+      const dec = (v) => {
+        const k = Number(v);
+        if (k >= 1 && k <= 5)
+          counts[k] = Math.max(0, Number(counts[k] || 0) - 1);
+      };
+      const inc = (v) => {
+        const k = Number(v);
+        if (k >= 1 && k <= 5) counts[k] = Number(counts[k] || 0) + 1;
+      };
+
+      if (prevRating != null) dec(prevRating);
+      if (nextRating != null) inc(nextRating);
+
+      this.counts = counts;
+
+      // avgRating도 counts로 다시 계산
+      const totalRatings =
+        counts[1] + counts[2] + counts[3] + counts[4] + counts[5];
+      const sum =
+        1 * counts[1] +
+        2 * counts[2] +
+        3 * counts[3] +
+        4 * counts[4] +
+        5 * counts[5];
+
+      this.avgRating = totalRatings ? sum / totalRatings : 0;
     },
   },
 };
