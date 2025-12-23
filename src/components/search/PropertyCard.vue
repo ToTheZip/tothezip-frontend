@@ -1,13 +1,14 @@
 <template>
-  <div class="property-result-card" @click="$emit('click')">
-    <div class="property-image-area">
-      <div class="property-image-box">
+  <div class="property-grid-card" @click="$emit('click')">
+    <div class="card-image-area">
+      <div class="card-image-box">
         <img
           :src="property.image"
           :alt="property.name"
-          class="property-image"
+          class="card-image"
           @error="onImageError"
         />
+        <div class="image-overlay"></div>
       </div>
 
       <div class="rating-badge">
@@ -16,40 +17,32 @@
       </div>
     </div>
 
-    <div class="property-info-area">
-      <div class="price-info">
+    <div class="card-content">
+      <div class="price-section">
         <p class="price-text">{{ priceLabel }}</p>
       </div>
 
-      <div class="property-name-row">
-        <p class="property-name">{{ property.name }}</p>
+      <div class="name-section">
+        <h3 class="property-name">{{ property.name }}</h3>
       </div>
 
-      <div class="property-details">
-        <div class="location-row">
-          <MapPin />
-          <span class="location-text">{{ property.address }}</span>
-        </div>
+      <div class="location-section">
+        <MapPin class="location-icon" />
+        <span class="location-text">{{ property.address }}</span>
+      </div>
 
-        <div class="tags-row">
-          <span v-for="tag in property.tags" :key="tag" class="property-tag">
-            <span class="tag-hash">#</span>
-            <span class="tag-text">{{ tag }}</span>
-          </span>
-        </div>
+      <div class="tags-section">
+        <span v-for="tag in property.tags" :key="tag" class="property-tag">
+          #{{ tag }}
+        </span>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import axios from "axios";
-import { useAuthStore } from "@/stores/auth";
-
 import Star from "@/components/icons/Star.vue";
 import MapPin from "@/components/icons/MapPin.vue";
-
-const API_BASE = import.meta.env.VITE_API_BASE;
 
 export default {
   name: "PropertyCard",
@@ -64,20 +57,16 @@ export default {
       const p = this.property?.minPrice;
       const d = this.property?.minDeposit;
 
-      // 값이 없으면 빈 문자열
       if (!t || p == null) return "";
 
-      // 숫자 포맷 (DB 단위가 만원이라고 가정)
       const formatMoney = (num) => {
         const n = Number(num);
         if (!Number.isFinite(n)) return String(num);
 
-        // 1억 = 10000(만원)
         if (n >= 10000) {
           const eok = Math.floor(n / 10000);
           const rest = n % 10000;
           if (rest === 0) return `${eok}억`;
-          // 천 단위(만원) 표현: 5500 -> 5,500만원 느낌 대신 "5천" 등은 취향이라 간단히 만원으로
           return `${eok}억 ${rest}만원`;
         }
         return `${n}만원`;
@@ -89,11 +78,13 @@ export default {
         return `월세 ${dep} / ${rent}`;
       }
 
-      // 전세/매매
       return `${t} ${formatMoney(p)}`;
     },
   },
   methods: {
+    goToMap() {
+      this.$emit("go-map", this.property.id);
+    },
     onImageError(e) {
       e.target.onerror = null;
       e.target.src =
@@ -104,124 +95,221 @@ export default {
 </script>
 
 <style scoped>
-.property-result-card {
+.property-grid-card {
   display: flex;
-  align-items: flex-start;
-  padding: 10px 0;
+  flex-direction: column;
   cursor: pointer;
-  transition: background 0.2s;
-}
-.property-result-card:hover {
-  background: rgba(244, 236, 231, 0.3);
-}
-.property-image-area {
-  padding: 5px 10px;
-  position: relative;
-}
-.property-image-box {
-  width: 100px;
-  height: 100px;
-  border: 1px solid var(--tothezip-brown-01);
-  border-radius: 20px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1.5px solid var(--tothezip-brown-02);
   overflow: hidden;
+  box-shadow: 0 2px 8px rgba(75, 29, 28, 0.06);
+}
+
+.property-grid-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(75, 29, 28, 0.12);
+  border-color: var(--tothezip-orange-04);
+}
+
+.property-grid-card:hover .card-image {
+  transform: scale(1.1);
+}
+
+.property-grid-card:hover .image-overlay {
+  opacity: 0.2;
+}
+
+.property-grid-card:hover .property-name {
+  color: var(--tothezip-orange-05);
+}
+
+.card-image-area {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: var(--tothezip-beige-01);
+}
+
+.card-image-box {
+  width: 100%;
+  height: 100%;
   position: relative;
 }
-.property-image {
+
+.card-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.star-icon {
-  color: var(--tothezip-ruby-06);
+
+.image-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    var(--tothezip-orange-04) 0%,
+    var(--tothezip-orange-05) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
 }
+
 .rating-badge {
   position: absolute;
-  left: 17px;
-  top: 12px;
-  background: #ffffff;
-  border: 1px solid var(--tothezip-brown-01);
-  border-radius: 30px;
-  padding: 2px 6px;
+  left: 10px;
+  top: 10px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--tothezip-brown-02);
+  border-radius: 20px;
+  padding: 4px 8px;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
+  box-shadow: 0 2px 8px rgba(75, 29, 28, 0.15);
+  transition: all 0.2s ease;
+  z-index: 10;
 }
+
+.property-grid-card:hover .rating-badge {
+  background: rgba(255, 255, 255, 1);
+  transform: scale(1.05);
+}
+
+.star-icon {
+  color: var(--tothezip-ruby-06);
+  width: 13px;
+  height: 13px;
+}
+
 .rating-text {
   font-family: "Pretendard", sans-serif;
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 700;
   color: var(--tothezip-ruby-06);
   line-height: 1;
 }
-.property-info-area {
-  flex: 1;
-  padding: 5px 0;
+
+.card-content {
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  min-width: 0;
+  gap: 8px;
+  background: #ffffff;
 }
-.price-info {
-  padding: 0 5px;
-}
-.price-text {
-  font-family: "Pretendard", sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--tothezip-brown-06);
+
+.price-section {
   margin: 0;
 }
-.property-name-row {
-  padding: 0 5px;
-}
-.property-name {
+
+.price-text {
   font-family: "Pretendard", sans-serif;
   font-size: 15px;
-  font-weight: 500;
-  color: #000000;
+  font-weight: 700;
+  color: var(--tothezip-orange-06);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.name-section {
+  margin: 0;
+}
+
+.property-name {
+  font-family: "Pretendard", sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--tothezip-brown-09);
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color 0.2s ease;
+  letter-spacing: -0.01em;
 }
-.property-details {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.location-row {
+
+.location-section {
   display: flex;
   align-items: center;
-  gap: 3px;
-  padding: 0 5px;
+  gap: 5px;
 }
+
+.location-icon {
+  width: 13px;
+  height: 13px;
+  color: var(--tothezip-brown-05);
+  flex-shrink: 0;
+}
+
 .location-text {
   font-family: "Pretendard", sans-serif;
-  font-size: 10px;
-  font-weight: 400;
-  color: var(--tothezip-gray-04);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--tothezip-brown-05);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.tags-row {
+
+.tags-section {
   display: flex;
   align-items: center;
-  gap: 0;
-  padding: 0 3px;
+  gap: 5px;
   flex-wrap: wrap;
-  margin-top: 12px;
+  margin-top: 2px;
 }
+
 .property-tag {
   font-family: "Pretendard", sans-serif;
   font-size: 10px;
-  font-weight: 400;
-  color: var(--tothezip-gray-04);
+  font-weight: 600;
+  color: var(--tothezip-brown-04);
+  background: rgba(244, 236, 231, 0.6);
+  border: 1px solid var(--tothezip-brown-02);
+  border-radius: 10px;
+  padding: 3px 7px;
   display: inline-flex;
-  padding: 0;
-  width: 45px;
+  align-items: center;
+  transition: all 0.2s ease;
+  letter-spacing: -0.01em;
 }
-.tag-hash {
-  font-size: 11px;
+
+.property-grid-card:hover .property-tag {
+  background: var(--tothezip-orange-01);
+  border-color: var(--tothezip-orange-03);
+  color: var(--tothezip-orange-06);
 }
-.tag-text {
-  font-size: 10px;
+
+/* 부모 컨테이너에 이 스타일을 적용하세요 */
+.properties-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  padding: 16px;
+}
+
+/* 반응형 */
+@media (max-width: 1200px) {
+  .properties-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .properties-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .properties-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

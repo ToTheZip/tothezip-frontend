@@ -20,7 +20,7 @@
             placeholder="두집이에게 관심 매물 정보를 알려주세요!"
             class="search-input"
           />
-          <button class="search-button" aria-label="검색">
+          <button class="search-button" aria-label="검색" @click="onSearch">
             <span class="search-icon">🔍</span>
           </button>
         </div>
@@ -156,6 +156,22 @@ export default {
     },
   },
   methods: {
+    async onSearch() {
+      const ui = useUIStore();
+
+      // 🔥 중요: 찜 모드 해제
+      ui.setSearchMode("SEARCH");
+
+      const payload = {
+        // 여기 네가 이미 쓰고 있는 검색 payload 구조
+        keyword: this.keyword, // 예시
+        options: {},
+      };
+
+      sessionStorage.setItem("tothezip_search", JSON.stringify(payload));
+
+      this.$router.push("/search");
+    },
     toggleCalendar() {
       const ui = useUIStore();
       ui.toggleFavoriteCalendar();
@@ -163,8 +179,12 @@ export default {
     goFavorites() {
       const ui = useUIStore();
       ui.setSearchMode("FAVORITE");
-
-      this.$router.push("/search");
+      this.$router.push({ path: "/search", query: { mode: "favorite" } });
+    },
+    goSearchMap() {
+      const ui = useUIStore();
+      ui.setSearchMode("SEARCH");
+      this.$router.push({ path: "/search" });
     },
     goCalendar() {
       this.$router.push("/user/calendar");

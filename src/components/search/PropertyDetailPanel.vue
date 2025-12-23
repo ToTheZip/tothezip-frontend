@@ -260,7 +260,7 @@ export default {
       listings: [],
       listingsLoading: false,
       listingsError: "",
-
+      
       // reviews
       reviews: [],
       reviewsTotalCount: 0,
@@ -284,13 +284,16 @@ export default {
     async toggleListingLike(item) {
       console.log("Toggling like for item:", item);
       const auth = useAuthStore();
+
       if (!auth.accessToken) {
         alert("로그인 후 이용해주세요");
         this.$router.push("/login");
         return;
       }
+
       const has = !!item.isLiked;
-      item.isLiked = !has; // ✅ optimistic UI
+      item.isLiked = !has;
+
       try {
         if (has) {
           // 찜 해제
@@ -323,7 +326,7 @@ export default {
         }
       } catch (e) {
         console.error(e);
-        item.isLiked = has; // ❌ 실패 시 롤백
+        item.isLiked = has; // 실패 시 롤백
         alert("찜 처리에 실패했어요.");
       }
     },
@@ -334,11 +337,14 @@ export default {
     async fetchListings() {
       const aptSeq = this.property?.aptSeq;
       if (!aptSeq) return;
+
       this.listingsLoading = true;
       this.listingsError = "";
       this.listings = [];
+
       try {
         const auth = useAuthStore();
+
         const [listRes, favRes] = await Promise.all([
           axios.get(`/property/${aptSeq}/listings`),
           auth.accessToken
@@ -351,7 +357,9 @@ export default {
               })
             : Promise.resolve({ data: [] }),
         ]);
+
         const likedIds = new Set(favRes.data || []);
+
         this.listings = (listRes.data || []).map((x) => ({
           ...x,
           isLiked: likedIds.has(x.propertyId),
@@ -452,6 +460,23 @@ export default {
       if (Number.isNaN(d.getTime())) return String(v).slice(0, 10);
       return d.toISOString().slice(0, 10);
     },
+  },
+
+  // 프로필 이미지 경로 처리 (서버가 /uploads/... 처럼 주는 케이스 대응)
+  profileSrc(path) {
+    if (!path) return "/images/default_profile.png"; // 너네 기본 이미지로 교체해도 됨
+    // 이미 http로 내려오면 그대로
+    if (String(path).startsWith("http")) return path;
+    return path; // "/uploads/xxx.png" 형태면 그대로 사용
+  },
+
+  formatDate(v) {
+    if (!v) return "";
+    // "2025-12-23 10:11:12" / ISO 둘 다 대충 처리
+    const s = String(v).replace(" ", "T");
+    const d = new Date(s);
+    if (Number.isNaN(d.getTime())) return String(v).slice(0, 10);
+    return d.toISOString().slice(0, 10);
   },
 };
 </script>
@@ -757,6 +782,45 @@ export default {
 
 .listing-heart-icon {
   color: var(--tothezip-brown-07);
+}
+
+.listing-like-button.favorite-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--tothezip-beige-04);
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.listing-like-button .icon {
+  width: 14px;
+  height: 14px;
+  color: var(--tothezip-brown-05);
+}
+
+/* hover */
+.listing-like-button:hover {
+  background: var(--tothezip-orange-01);
+  border-color: var(--tothezip-orange-03);
+}
+
+.listing-like-button:hover .icon {
+  transform: scale(1.15);
+}
+
+/* liked 상태 */
+.listing-like-button.liked {
+  background: var(--tothezip-orange-04);
+  border-color: var(--tothezip-orange-04);
+}
+
+.listing-like-button.liked .icon {
+  color: #ffffff;
 }
 
 /* 리뷰 헤더(제목 + 화살표) */

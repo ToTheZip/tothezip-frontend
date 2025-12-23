@@ -2,7 +2,7 @@ import { defineStore } from "pinia";
 
 export const useUIStore = defineStore("ui", {
   state: () => ({
-    searchMode: "ALL",
+    searchMode: "SEARCH", // SEARCH | FAVORITE
     showFavoriteCalendar: false,
   }),
   actions: {

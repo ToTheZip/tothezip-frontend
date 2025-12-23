@@ -142,6 +142,8 @@ import RegionSelectPanel from "./search/RegionSelectPanel.vue";
 import OptionsSelectPanel from "./search/OptionsSelectPanel.vue";
 import PropertySearchPanel from "./search/PropertySearchPanel.vue";
 
+import { useUIStore } from "@/stores/ui";
+
 export default {
   name: "SearchBar",
   components: {
@@ -336,6 +338,11 @@ export default {
 
     // 검색 실행
     handleSearch() {
+      const ui = useUIStore();
+
+      // 🔥 핵심: 찜 모드 해제 → 일반 검색 모드
+      ui.setSearchMode("SEARCH");
+
       const searchData = {
         sido: this.selectedSido,
         gugun: this.selectedGugun,
@@ -344,8 +351,6 @@ export default {
         options: this.optionsData,
         property: this.selectedProperty,
       };
-
-      // this.$emit("search", searchData);
 
       sessionStorage.setItem("tothezip_search", JSON.stringify(searchData));
 
