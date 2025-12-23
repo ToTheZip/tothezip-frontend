@@ -24,50 +24,13 @@
           <!-- 로그인 상태에서만 -->
           <button
             v-if="isLoggedIn"
+            ref="writeBtn"
             class="write-button"
             type="button"
-            @click="showWriteForm ? closeWriteForm() : (showWriteForm = true)"
+            @click.stop="toggleWritePopup"
           >
             리뷰 작성하기
           </button>
-        </div>
-
-        <!-- 리뷰 작성 폼 -->
-        <div v-if="showWriteForm" class="write-form">
-          <div class="rating-row">
-            <span
-              v-for="i in 5"
-              :key="i"
-              class="star"
-              :class="{ filled: i <= newRating }"
-              @click="newRating = i"
-            >
-              ★
-            </span>
-          </div>
-
-          <textarea
-            v-model="newContent"
-            class="content-input"
-            placeholder="리뷰를 입력해주세요."
-            rows="3"
-          />
-
-          <p v-if="submitError" class="submit-error">{{ submitError }}</p>
-
-          <div class="write-actions">
-            <button class="cancel" type="button" @click="closeWriteForm">
-              취소
-            </button>
-            <button
-              class="submit"
-              type="button"
-              :disabled="submitting"
-              @click="submitReview"
-            >
-              {{ submitting ? "등록 중..." : "등록" }}
-            </button>
-          </div>
         </div>
 
         <!-- 목록 상태 -->
@@ -128,6 +91,63 @@
       </div>
     </div>
   </div>
+
+  <!-- body로 빼서 z-index/overflow 영향 제거 -->
+  <teleport to="body">
+    <div
+      v-if="showWritePopup"
+      class="popup-backdrop"
+      @mousedown="closeWriteForm"
+      @touchstart="closeWriteForm"
+    >
+      <div
+        class="write-popover"
+        :style="popoverStyle"
+        @mousedown.stop
+        @touchstart.stop
+        @click.stop
+      >
+        <div class="popover-arrow" />
+
+        <div class="popover-title">리뷰 작성</div>
+
+        <div class="rating-row">
+          <span
+            v-for="i in 5"
+            :key="i"
+            class="star"
+            :class="{ filled: i <= newRating }"
+            @click="newRating = i"
+          >
+            ★
+          </span>
+        </div>
+
+        <textarea
+          v-model="newContent"
+          class="content-input"
+          placeholder="리뷰를 입력해주세요."
+          rows="4"
+        />
+
+        <p v-if="submitError" class="submit-error">{{ submitError }}</p>
+
+        <div class="write-actions">
+          <button class="cancel" type="button" @click="closeWriteForm">
+            취소
+          </button>
+          <button
+            class="submit"
+            type="button"
+            :disabled="submitting"
+            @click="submitReview"
+          >
+            {{ submitting ? "등록 중..." : "등록" }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </teleport>
 </template>
 
 <script>
@@ -135,6 +155,7 @@ import axios from "axios";
 import ChevronLeft from "@/components/icons/ChevronLeft.vue";
 import defaultProfile from "@/assets/images/default_profile.png";
 import { useAuthStore } from "@/stores/auth";
+import { http } from "@/api/http";
 
 export default {
   name: "ReviewListPanel",
@@ -149,16 +170,20 @@ export default {
       reviews: [],
       totalCount: 0,
       hasMore: false,
-
       limit: 20,
       offset: 0,
-
       loading: false,
       loadingMore: false,
       error: "",
 
-      // 작성 관련
-      showWriteForm: false,
+      // 작성 팝업
+      showWritePopup: false,
+      popoverStyle: {
+        position: "fixed",
+        top: "0px",
+        left: "0px",
+      },
+
       newRating: 5,
       newContent: "",
       submitting: false,
@@ -168,7 +193,7 @@ export default {
   computed: {
     isLoggedIn() {
       const auth = useAuthStore();
-      return !!auth.accessToken;
+      return auth.isLoggedIn;
     },
   },
   watch: {
@@ -180,7 +205,70 @@ export default {
       },
     },
   },
+  mounted() {
+    // 스크롤/리사이즈 시 위치 갱신
+    window.addEventListener("scroll", this.repositionPopover, true);
+    window.addEventListener("resize", this.repositionPopover);
+  },
+  beforeUnmount() {
+    window.removeEventListener("scroll", this.repositionPopover, true);
+    window.removeEventListener("resize", this.repositionPopover);
+  },
   methods: {
+    repositionPopover() {
+      if (!this.showWritePopup) return;
+
+      const btn = this.$refs.writeBtn;
+      if (!btn) return;
+
+      const rect = btn.getBoundingClientRect();
+
+      // 버튼 오른쪽에 뜨게 (간격 10px)
+      const gap = 10;
+      const top = rect.top + rect.height / 2; // 세로 기준점
+      const left = rect.right + gap;
+
+      // 팝업이 화면 밖으로 나가면 위/왼쪽으로 보정
+      const popupW = 260;
+      const popupH = 240;
+
+      let x = left;
+      let y = top - 20; // 살짝 위로
+
+      if (x + popupW > window.innerWidth - 8) {
+        // 오른쪽 공간 부족하면 왼쪽에 띄우기
+        x = rect.left - gap - popupW;
+      }
+      if (y + popupH > window.innerHeight - 8) {
+        y = window.innerHeight - popupH - 8;
+      }
+      if (y < 8) y = 8;
+
+      this.popoverStyle = {
+        position: "fixed",
+        left: `${Math.round(x)}px`,
+        top: `${Math.round(y)}px`,
+      };
+    },
+
+    toggleWritePopup() {
+      if (this.showWritePopup) {
+        this.closeWriteForm();
+        return;
+      }
+      this.showWritePopup = true;
+      this.submitError = "";
+      this.$nextTick(() => this.repositionPopover());
+    },
+
+    closeWriteForm() {
+      this.showWritePopup = false;
+      this.newRating = 5;
+      this.newContent = "";
+      this.submitError = "";
+      this.submitting = false;
+    },
+
     async fetchFirst() {
       if (!this.aptSeq) return;
 
@@ -227,18 +315,9 @@ export default {
       }
     },
 
-    closeWriteForm() {
-      this.showWriteForm = false;
-      this.newRating = 5;
-      this.newContent = "";
-      this.submitError = "";
-      this.submitting = false;
-    },
-
     async submitReview() {
       const auth = useAuthStore();
-      const token = auth.accessToken;
-      if (!token) return;
+      if (!auth.accessToken) return;
 
       const content = this.newContent.trim();
       if (!content) {
@@ -248,26 +327,19 @@ export default {
 
       this.submitting = true;
       try {
-        await axios.post(
-          "/reviews",
-          {
-            aptSeq: this.aptSeq,
-            reviewRating: this.newRating,
-            reviewContent: content,
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        // Authorization 헤더를 직접 넣지 않아도 됨(인터셉터가 자동)
+        await http.post("/reviews", {
+          aptSeq: this.aptSeq,
+          reviewRating: this.newRating,
+          reviewContent: content,
+        });
 
         this.closeWriteForm();
         await this.fetchFirst();
       } catch (e) {
         console.error(e);
         this.submitError =
-          e?.response?.status === 401
+          e?.response?.status === 401 || e?.response?.status === 403
             ? "로그인이 필요해요."
             : "리뷰 등록에 실패했어요.";
       } finally {
@@ -291,6 +363,7 @@ export default {
 </script>
 
 <style scoped>
+/* 기존 패널 */
 .property-detail-panel {
   position: absolute;
   left: 277px;
@@ -349,69 +422,96 @@ export default {
   cursor: pointer;
 }
 
-.write-form {
-  margin: 10px 0;
-  padding: 10px;
-  border: 1px solid var(--tothezip-brown-01);
-  border-radius: 12px;
-  background: rgba(244, 236, 231, 0.25);
+/* --- Popover --- */
+/* scoped라서 teleport된 DOM에 안 먹을 수 있음 → :deep()로 처리 */
+:deep(.popup-backdrop) {
+  position: fixed;
+  inset: 0;
+  z-index: 9998; /* 지도/패널 위로 */
+  background: transparent;
 }
 
+:deep(.write-popover) {
+  width: 260px;
+  padding: 12px 12px 10px;
+  background: #fff;
+  border: 1px solid var(--tothezip-brown-01);
+  border-radius: 14px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  z-index: 9999;
+}
+
+:deep(.popover-arrow) {
+  position: absolute;
+  left: -6px;
+  top: 18px;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border-left: 1px solid var(--tothezip-brown-01);
+  border-bottom: 1px solid var(--tothezip-brown-01);
+  transform: rotate(45deg);
+}
+
+:deep(.popover-title) {
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+/* 작성 UI */
 .rating-row {
   display: flex;
   gap: 4px;
   margin-bottom: 8px;
 }
-
 .star {
   font-size: 14px;
   opacity: 0.25;
   cursor: pointer;
 }
-
 .star.filled {
   opacity: 1;
   color: var(--tothezip-ruby-06);
 }
-
 .content-input {
   width: 100%;
   border: 1px solid var(--tothezip-brown-01);
   border-radius: 8px;
   padding: 6px;
   font-size: 11px;
+  box-sizing: border-box;
 }
-
 .submit-error {
   margin-top: 6px;
   font-size: 10px;
   color: #d22;
 }
-
 .write-actions {
   display: flex;
   justify-content: flex-end;
   gap: 6px;
   margin-top: 8px;
 }
-
-.write-actions button {
-  height: 28px;
-  border-radius: 8px;
-  font-size: 11px;
-}
-
 .write-actions .cancel {
   border: 1px solid var(--tothezip-brown-01);
   background: #fff;
+  border-radius: 8px;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 11px;
 }
-
 .write-actions .submit {
   background: var(--tothezip-brown-07);
   color: #fff;
   border: none;
+  border-radius: 8px;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 11px;
 }
 
+/* 리뷰 리스트(기존) */
 .review-item {
   display: flex;
   gap: 10px;
@@ -420,25 +520,21 @@ export default {
   padding: 10px;
   margin-bottom: 8px;
 }
-
 .avatar {
   width: 34px;
   height: 34px;
   border-radius: 50%;
   object-fit: cover;
 }
-
 .review-top {
   display: flex;
   justify-content: space-between;
   font-size: 10px;
 }
-
 .content {
   font-size: 11px;
   margin-top: 4px;
 }
-
 .more-button {
   width: 100%;
   height: 32px;
