@@ -80,8 +80,29 @@
 
       <!-- 거래 기록 -->
       <div class="section-divider">
-        <h3 class="section-title">거래 기록</h3>
-        <div class="chart-placeholder"><p>시세 그래프</p></div>
+        <div class="section-title-row">
+          <h3 class="section-title">거래 기록</h3>
+
+          <!-- 옵션(선택): 평균/중앙값 토글 -->
+          <button
+            class="tiny-toggle"
+            type="button"
+            @click="priceMode = priceMode === 'median' ? 'avg' : 'median'"
+          >
+            {{ priceMode === "median" ? "중앙값" : "평균" }}
+          </button>
+        </div>
+
+        <div v-if="priceLoading" class="chart-placeholder">
+          <p>불러오는 중...</p>
+        </div>
+        <div v-else-if="priceError" class="chart-placeholder">
+          <p>{{ priceError }}</p>
+        </div>
+        <div v-else-if="priceSeries.length === 0" class="chart-placeholder">
+          <p>최근 5년 거래 데이터가 없어요.</p>
+        </div>
+        <PriceChart v-else :points="priceSeries" :mode="priceMode" />
       </div>
 
       <!-- 매물 -->
@@ -177,6 +198,7 @@ import { useAuthStore } from "@/stores/auth";
 import ListingItem from "@/components/search/ListingItem.vue";
 import ReviewItem from "@/components/search/ReviewItem.vue";
 import ImageGallery from "@/components/search/ImageGallery.vue";
+import PriceChart from "@/components/search/PriceChart.vue";
 
 const API_BASE = import.meta.env.VITE_API_BASE;
 
@@ -190,6 +212,7 @@ export default {
     ListingItem,
     ReviewItem,
     ImageGallery,
+    PriceChart,
   },
   props: {
     property: { type: Object, required: true },
@@ -238,6 +261,11 @@ export default {
 
       galleryOpen: false,
       galleryIndex: 0,
+
+      priceSeries: [],
+      priceLoading: false,
+      priceError: "",
+      priceMode: "avg", // or "avg"
     };
   },
   watch: {
@@ -246,6 +274,7 @@ export default {
       handler() {
         this.fetchListings();
         this.fetchReviewsPreview();
+        this.fetchPriceSeries();
       },
     },
   },
@@ -396,6 +425,29 @@ export default {
     nextImage() {
       if (!this.allImages.length) return;
       this.galleryIndex = (this.galleryIndex + 1) % this.allImages.length;
+    },
+    async fetchPriceSeries() {
+      const aptSeq = this.property?.aptSeq;
+      if (!aptSeq) return;
+
+      this.priceLoading = true;
+      this.priceError = "";
+      this.priceSeries = [];
+
+      try {
+        const { data } = await axios.get(
+          `${API_BASE}/property/${aptSeq}/price-series`,
+          {
+            params: { period: "month" }, // or quarter
+          }
+        );
+        this.priceSeries = data?.points || [];
+      } catch (e) {
+        console.error(e);
+        this.priceError = "시세 정보를 불러오지 못했어요.";
+      } finally {
+        this.priceLoading = false;
+      }
     },
   },
 };
@@ -665,5 +717,14 @@ export default {
 
 .reviews-more-button:hover .chevron-icon {
   opacity: 0.7;
+}
+
+.tiny-toggle {
+  border: 1px solid var(--tothezip-brown-01);
+  background: #fff;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 10px;
+  cursor: pointer;
 }
 </style>
