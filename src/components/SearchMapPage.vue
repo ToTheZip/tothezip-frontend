@@ -133,6 +133,15 @@ export default {
   },
   async mounted() {
     await this.initByRoute();
+    // 헤더 검색 이벤트 리스너 추가
+    window.addEventListener("header-search-triggered", this.handleHeaderSearch);
+  },
+  beforeUnmount() {
+    // 이벤트 리스너 제거
+    window.removeEventListener(
+      "header-search-triggered",
+      this.handleHeaderSearch
+    );
   },
   watch: {
     "$route.query": {
@@ -143,6 +152,19 @@ export default {
     },
   },
   methods: {
+    // ---------------------------
+    // 헤더 검색 이벤트 핸들러
+    // ---------------------------
+    handleHeaderSearch() {
+      console.log("헤더 검색 이벤트 감지됨");
+      // 검색 모드로 전환하고 검색 결과 다시 가져오기
+      this.entryMode = "ALL";
+      this.tabMode = "ALL";
+      this.selectedProperty = null;
+      this.showReviewPanel = false;
+      this.fetchSearchResults();
+    },
+
     // ---------------------------
     // INIT (entry 결정)
     // ---------------------------

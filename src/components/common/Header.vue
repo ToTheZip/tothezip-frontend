@@ -1,6 +1,6 @@
 <template>
   <nav class="navbar">
-    <div class="navbar-inner">
+    <div class="navbar-inner" @click="handleNavbarClick">
       <!-- LEFT: 로고 영역 -->
       <div class="nav-left">
         <router-link to="/" class="logo-area">
@@ -13,17 +13,171 @@
       </div>
 
       <!-- CENTER: 검색바 영역 -->
-      <div class="nav-center">
-        <div class="search-bar">
-          <input
-            type="text"
-            placeholder="두집이에게 관심 매물 정보를 알려주세요!"
-            class="search-input"
-          />
-          <button class="search-button" aria-label="검색" @click="onSearch">
-            <span class="search-icon">🔍</span>
-          </button>
+      <div class="nav-center" @click.stop>
+        <div
+          class="search-bar"
+          :class="{ expanded: isSearchExpanded }"
+          ref="searchBarRef"
+        >
+          <!-- 축소 상태 (기본) -->
+          <template v-if="!isSearchExpanded">
+            <input
+              type="text"
+              :placeholder="searchSummary"
+              class="search-input"
+              @click="expandSearch"
+              readonly
+            />
+          </template>
+
+          <!-- 확장 상태 -->
+          <template v-else>
+            <!-- 지역 선택 필드 -->
+            <div
+              class="search-field area-1"
+              :class="{ active: activeSearchPanel === 'region' }"
+              @click.stop="toggleSearchPanel('region')"
+            >
+              <div class="field-title">지역</div>
+              <div class="field-search">
+                <div v-if="selectedLocation" class="selected-text">
+                  {{ selectedLocation }}
+                </div>
+                <div v-else class="placeholder-text">지역 검색</div>
+              </div>
+            </div>
+
+            <div
+              class="divider"
+              :class="{
+                hidden:
+                  activeSearchPanel === 'region' ||
+                  activeSearchPanel === 'options',
+              }"
+            ></div>
+
+            <!-- 옵션 선택 필드 -->
+            <div
+              class="search-field area-2"
+              :class="{ active: activeSearchPanel === 'options' }"
+              @click.stop="toggleSearchPanel('options')"
+            >
+              <div class="field-title">옵션</div>
+              <div class="field-search">
+                <div v-if="selectedOptions.length > 0" class="options-tags">
+                  <span
+                    v-for="(tag, idx) in visibleOptionTags"
+                    :key="idx"
+                    class="option-tag"
+                  >
+                    {{ tag }}
+                  </span>
+                  <span v-if="hiddenOptionsCount > 0" class="more-options">
+                    +{{ hiddenOptionsCount }}
+                  </span>
+                </div>
+                <div v-else class="placeholder-text">옵션 추가</div>
+              </div>
+            </div>
+
+            <div
+              class="divider"
+              :class="{
+                hidden:
+                  activeSearchPanel === 'options' ||
+                  activeSearchPanel === 'property',
+              }"
+            ></div>
+
+            <!-- 매물명 선택 필드 -->
+            <div
+              class="search-field area-3"
+              :class="{ active: activeSearchPanel === 'property' }"
+              @click.stop="toggleSearchPanel('property')"
+            >
+              <div class="field-title">매물명</div>
+              <div class="field-search">
+                <div v-if="selectedProperty" class="selected-text">
+                  {{ selectedProperty }}
+                </div>
+                <div v-else class="placeholder-text">검색어 입력</div>
+              </div>
+            </div>
+
+            <button
+              @click.stop="executeHeaderSearch"
+              class="search-button expanded-btn"
+              aria-label="검색"
+            >
+              <svg
+                class="search-icon-svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M11 19C15.4183 19 19 15.4183 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19Z"
+                  stroke="white"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M21 21L16.65 16.65"
+                  stroke="white"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+          </template>
         </div>
+
+        <!-- 패널 영역 -->
+        <transition name="slide-fade">
+          <div
+            v-if="isSearchExpanded && activeSearchPanel"
+            class="panel-container"
+          >
+            <!-- 지역 선택 패널 -->
+            <RegionSelectPanel
+              v-if="activeSearchPanel === 'region'"
+              :selectedSido="selectedSido"
+              :selectedGugun="selectedGugun"
+              :selectedDong="selectedDong"
+              @apply="handleRegionApply"
+              @reset="resetLocation"
+            />
+
+            <!-- 옵션 선택 패널 -->
+            <OptionsSelectPanel
+              v-if="activeSearchPanel === 'options'"
+              :options="optionsData"
+              @apply="handleOptionsApply"
+              @reset="resetOptions"
+            />
+
+            <!-- 매물명 검색 패널 -->
+            <PropertySearchPanel
+              v-if="activeSearchPanel === 'property'"
+              :initialQuery="propertySearchQuery"
+              :sido="selectedSido"
+              :gugun="selectedGugun"
+              :dong="selectedDong"
+              @select="handlePropertySelect"
+            />
+          </div>
+        </transition>
+
+        <!-- 검색바 확장 시 오버레이 -->
+        <div
+          v-if="isSearchExpanded"
+          class="search-overlay"
+          @click="closeSearch"
+        ></div>
       </div>
 
       <!-- RIGHT: 메뉴 영역 -->
@@ -125,10 +279,6 @@
 
             <!-- ⭐ 관심 수정 패널 -->
             <PreferenceEditPanel />
-
-            <!-- <router-link to="/" class="nav-link" @click="logout"
-              >로그아웃</router-link
-            > -->
           </div>
         </template>
       </div>
@@ -144,6 +294,9 @@ import { logoutApi } from "@/api/auth";
 import { useUIStore } from "@/stores/ui";
 import ProfileMenuPanel from "@/components/profile/ProfileMenuPanel.vue";
 import PreferenceEditPanel from "@/components/profile/PreferenceEditPanel.vue";
+import RegionSelectPanel from "@/components/home/search/RegionSelectPanel.vue";
+import OptionsSelectPanel from "@/components/home/search/OptionsSelectPanel.vue";
+import PropertySearchPanel from "@/components/home/search/PropertySearchPanel.vue";
 
 const profilePanelRef = ref(null);
 
@@ -171,19 +324,53 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener("click", onClickOutside);
 });
-// export default {
-//   name: "NavigationBar",
-//   setup() {
-//     const authStore = useAuthStore();
-//     const user = computed(() => authStore.user);
 
-//     return {
-//       user,
-//     };
-//   },
-// };
 export default {
   name: "Header",
+  data() {
+    return {
+      // 검색바 확장 상태
+      isSearchExpanded: false,
+      activeSearchPanel: null,
+      searchBarRef: null,
+
+      // 지역 선택 데이터
+      selectedSido: "",
+      selectedGugun: "",
+      selectedDong: "",
+      selectedLocation: "",
+
+      // 옵션 데이터
+      optionsData: {
+        nearSubway: false,
+        nearSchool: false,
+        nearHospital: false,
+        nearCulture: false,
+        dealType: [],
+        depositMin: 0,
+        depositMax: 100000,
+        monthlyRentMin: 0,
+        monthlyRentMax: 500,
+        jeonseMin: 0,
+        jeonseMax: 100000,
+        buyMin: 0,
+        buyMax: 50,
+        areaMin: 1,
+        areaMax: 100,
+        floorMin: 1,
+        floorMax: 100,
+        buildYearMin: 1960,
+        buildYearMax: 2025,
+        ratingMin: 0,
+        ratingMax: 5,
+      },
+      selectedOptions: [],
+
+      // 매물명 검색 데이터
+      propertySearchQuery: "",
+      selectedProperty: "",
+    };
+  },
   computed: {
     ui() {
       return useUIStore();
@@ -195,19 +382,237 @@ export default {
       return !!this.auth.accessToken;
     },
     profileImg() {
-      // auth.user에 프로필 이미지가 있으면 사용, 없으면 기본 이미지
       return (
         this.auth.user?.profileImageUrl ||
         this.auth.user?.profileImage ||
         new URL("@/assets/images/login_dozip.png", import.meta.url).href
       );
     },
+    visibleOptionTags() {
+      return this.selectedOptions.slice(0, 3);
+    },
+    hiddenOptionsCount() {
+      return Math.max(0, this.selectedOptions.length - 3);
+    },
+    searchSummary() {
+      const parts = [];
+
+      // 지역 정보
+      if (this.selectedLocation) {
+        parts.push(this.selectedLocation);
+      }
+
+      // 옵션 정보
+      if (this.selectedOptions.length > 0) {
+        if (this.selectedOptions.length === 1) {
+          parts.push(this.selectedOptions[0]);
+        } else if (this.selectedOptions.length === 2) {
+          parts.push(`${this.selectedOptions[0]}, ${this.selectedOptions[1]}`);
+        } else {
+          const remainingCount = this.selectedOptions.length - 2;
+          parts.push(
+            `${this.selectedOptions[0]}, ${this.selectedOptions[1]} 외 ${remainingCount}개`
+          );
+        }
+      }
+
+      // 매물명 정보
+      if (this.selectedProperty) {
+        parts.push(this.selectedProperty);
+      }
+
+      return parts.length > 0
+        ? parts.join(" | ")
+        : "두집이에게 관심 매물 정보를 알려주세요!";
+    },
   },
   components: {
     ProfileMenuPanel,
     PreferenceEditPanel,
+    RegionSelectPanel,
+    OptionsSelectPanel,
+    PropertySearchPanel,
+  },
+  mounted() {
+    // 전역 클릭 이벤트 리스너 추가
+    document.addEventListener("click", this.handleDocumentClick);
+  },
+  beforeUnmount() {
+    // 전역 클릭 이벤트 리스너 제거
+    document.removeEventListener("click", this.handleDocumentClick);
   },
   methods: {
+    // 전역 클릭 핸들러 (검색바 외부 클릭 시 닫기)
+    handleDocumentClick(event) {
+      if (!this.isSearchExpanded) return;
+
+      // 검색바 영역이나 패널 영역을 클릭한 경우는 무시
+      const searchBar = this.$refs.searchBarRef;
+      if (searchBar && searchBar.contains(event.target)) {
+        return;
+      }
+
+      // 그 외의 경우 검색바 닫기
+      this.closeSearch();
+    },
+
+    // 헤더 클릭 핸들러 (검색바 외부 클릭 시 닫기)
+    handleNavbarClick() {
+      if (this.isSearchExpanded) {
+        this.closeSearch();
+      }
+    },
+
+    // 검색바 확장/축소 관련 메서드
+    expandSearch() {
+      this.isSearchExpanded = true;
+    },
+    closeSearch() {
+      this.isSearchExpanded = false;
+      this.activeSearchPanel = null;
+    },
+    toggleSearchPanel(panel) {
+      if (this.activeSearchPanel === panel) {
+        this.activeSearchPanel = null;
+      } else {
+        this.activeSearchPanel = panel;
+      }
+    },
+
+    // 지역 선택 관련 메서드
+    handleRegionApply({ sido, gugun, dong, location }) {
+      this.selectedSido = sido;
+      this.selectedGugun = gugun;
+      this.selectedDong = dong;
+      this.selectedLocation = location;
+      this.activeSearchPanel = null;
+    },
+    resetLocation() {
+      this.selectedSido = "";
+      this.selectedGugun = "";
+      this.selectedDong = "";
+      this.selectedLocation = "";
+    },
+
+    // 옵션 선택 관련 메서드
+    handleOptionsApply(options) {
+      this.optionsData = { ...options };
+
+      const optionTags = [];
+      if (options.nearSubway) optionTags.push("역세권");
+      if (options.nearSchool) optionTags.push("학세권");
+      if (options.nearHospital) optionTags.push("병세권");
+      if (options.nearCulture) optionTags.push("문세권");
+      if (options.dealType && options.dealType.length > 0) {
+        optionTags.push(...options.dealType);
+      }
+
+      // 거래 유형별 가격 정보 표시
+      if (options.dealType.includes("월세")) {
+        if (options.depositMin || options.depositMax) {
+          optionTags.push(`보증금 ${options.depositMin}~${options.depositMax}`);
+        }
+        if (options.monthlyRentMin || options.monthlyRentMax) {
+          optionTags.push(
+            `월세 ${options.monthlyRentMin}~${options.monthlyRentMax}`
+          );
+        }
+      }
+      if (options.dealType.includes("전세")) {
+        if (options.jeonseMin || options.jeonseMax) {
+          optionTags.push(`전세 ${options.jeonseMin}~${options.jeonseMax}`);
+        }
+      }
+      if (options.dealType.includes("매매")) {
+        if (options.buyMin || options.buyMax) {
+          optionTags.push(`매매 ${options.buyMin}~${options.buyMax}`);
+        }
+      }
+
+      if (options.areaMin || options.areaMax) {
+        optionTags.push(`${options.areaMin || 0}~${options.areaMax || "∞"}평`);
+      }
+      if (options.floorMin || options.floorMax) {
+        optionTags.push(
+          `${options.floorMin || 0}~${options.floorMax || "∞"}층`
+        );
+      }
+      if (options.buildYearMin || options.buildYearMax) {
+        optionTags.push(
+          `${options.buildYearMin || 0}~${options.buildYearMax || "현재"}년`
+        );
+      }
+      if (options.ratingMin || options.ratingMax) {
+        optionTags.push(
+          `평점 ${options.ratingMin || 0}~${options.ratingMax || 5}`
+        );
+      }
+
+      this.selectedOptions = optionTags;
+      this.activeSearchPanel = null;
+    },
+    resetOptions() {
+      this.optionsData = {
+        nearSubway: false,
+        nearSchool: false,
+        nearHospital: false,
+        nearCulture: false,
+        dealType: [],
+        depositMin: 0,
+        depositMax: 100000,
+        monthlyRentMin: 0,
+        monthlyRentMax: 500,
+        jeonseMin: 0,
+        jeonseMax: 100000,
+        buyMin: 0,
+        buyMax: 50,
+        areaMin: 1,
+        areaMax: 100,
+        floorMin: 1,
+        floorMax: 100,
+        buildYearMin: 1960,
+        buildYearMax: 2025,
+        ratingMin: 0,
+        ratingMax: 5,
+      };
+      this.selectedOptions = [];
+    },
+
+    // 매물명 검색 관련 메서드
+    handlePropertySelect(property) {
+      this.selectedProperty = property.aptName;
+      this.propertySearchQuery = property.aptName;
+      this.activeSearchPanel = null;
+    },
+
+    // 검색 실행
+    executeHeaderSearch() {
+      console.log("검색 버튼 클릭됨");
+      const ui = useUIStore();
+      ui.setSearchMode("SEARCH");
+
+      const searchData = {
+        sido: this.selectedSido,
+        gugun: this.selectedGugun,
+        dong: this.selectedDong,
+        location: this.selectedLocation,
+        options: this.optionsData,
+        property: this.selectedProperty,
+      };
+
+      console.log("검색 데이터:", searchData);
+      sessionStorage.setItem("tothezip_search", JSON.stringify(searchData));
+      this.closeSearch();
+
+      // 검색 페이지로 이동하거나 이미 검색 페이지면 커스텀 이벤트 발생
+      if (this.$route.path !== "/search") {
+        this.$router.push("/search");
+      } else {
+        // 커스텀 이벤트를 발생시켜 검색 페이지에 알림
+        window.dispatchEvent(new CustomEvent("header-search-triggered"));
+      }
+    },
+
     toggleProfileMenu() {
       const ui = useUIStore();
       ui.toggleProfileMenu();
@@ -215,22 +620,6 @@ export default {
     openPreferenceEdit() {
       const ui = useUIStore();
       ui.openPreferenceEdit();
-    },
-    async onSearch() {
-      const ui = useUIStore();
-
-      // 🔥 중요: 찜 모드 해제
-      ui.setSearchMode("SEARCH");
-
-      const payload = {
-        // 여기 네가 이미 쓰고 있는 검색 payload 구조
-        keyword: this.keyword, // 예시
-        options: {},
-      };
-
-      sessionStorage.setItem("tothezip_search", JSON.stringify(payload));
-
-      this.$router.push("/search");
     },
     toggleCalendar() {
       const ui = useUIStore();
@@ -255,7 +644,7 @@ export default {
     async logout() {
       const auth = useAuthStore();
       try {
-        await logoutApi(); // 서버 refresh 쿠키 제거
+        await logoutApi();
       } catch (e) {
         console.error("[LOGOUT] api failed:", e);
       } finally {
@@ -285,7 +674,6 @@ export default {
   max-width: 1380px;
   height: 100%;
   margin: 0 auto;
-  /* padding: 0 5px; */
   position: relative;
   display: flex;
   align-items: center;
@@ -298,7 +686,7 @@ export default {
 
 /* RIGHT */
 .nav-right {
-  margin-left: auto; /* 오른쪽 끝으로 밀기 */
+  margin-left: auto;
 }
 
 /* CENTER */
@@ -308,25 +696,23 @@ export default {
   transform: translateX(-50%);
   display: flex;
   justify-content: center;
-  pointer-events: none; /* 아래 버튼 클릭 방해 방지 */
+  pointer-events: none;
 }
 
 .nav-center .search-bar {
   pointer-events: auto;
 }
 
-.nav-search {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  min-width: 0; /* flex 줄어들 때 깨짐 방지 */
+.nav-center .panel-container {
+  pointer-events: auto;
 }
 
 /* 검색바 */
 .search-bar {
   position: relative;
-  width: 420px;
-  max-width: 520px; /* 너무 길어지지 않게 */
+  width: auto;
+  min-width: 320px;
+  max-width: 750px;
   height: 45px;
   background: #fff;
   border: 1px solid #dcd4cf;
@@ -334,7 +720,17 @@ export default {
   box-shadow: 0px 2px 4px 2px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
-  padding: 0 50px 0 30px;
+  padding: 0 24px;
+  transition: all 0.3s ease;
+}
+
+.search-bar.expanded {
+  width: 580px;
+  max-width: 580px;
+  height: 70px;
+  padding: 8px 14px 8px 24px;
+  gap: 0;
+  z-index: 200;
 }
 
 .search-input {
@@ -345,7 +741,8 @@ export default {
   font-size: 13px;
   font-weight: 500;
   color: #a3978f;
-  min-width: 0; /* placeholder 잘림 방지 */
+  min-width: 0;
+  cursor: pointer;
 }
 
 .search-input::placeholder {
@@ -364,10 +761,246 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.search-button.expanded-btn {
+  position: relative;
+  right: auto;
+  width: 50px;
+  height: 50px;
+  margin-left: auto;
+  flex-shrink: 0;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.search-button.expanded-btn:hover {
+  background-color: var(--tothezip-orange-07);
 }
 
 .search-icon {
   font-size: 15px;
+}
+
+.search-icon-svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* 확장된 검색바 내부 요소 */
+.searchbar-dim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 100px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.search-field {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 6px 13px 8px 13px;
+  height: 70px;
+  cursor: pointer;
+  border-radius: 50px;
+  transition: all 0.2s;
+  margin: 0 -8px;
+  position: relative;
+  z-index: 2;
+}
+
+.search-field:hover {
+  background-color: var(--tothezip-gray-01, #f7f7f7);
+}
+
+.search-field.active {
+  z-index: 3;
+  background-color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 6px 26px 8px 26px;
+  margin: 0 -16px;
+}
+
+.area-1.active {
+  padding-left: 24px;
+  margin-left: -24px;
+}
+
+.area-3.active {
+  padding-right: 90px;
+  margin-right: -90px;
+}
+
+.area-1 {
+  width: 165px;
+}
+
+.area-2 {
+  width: 165px;
+}
+
+.area-3 {
+  width: 165px;
+}
+
+.field-title {
+  height: 26px;
+  padding: 0 6px;
+  margin-bottom: -2px;
+  font-family: "Pretendard", sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--tothezip-brown-08);
+}
+
+.field-search {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 4px 6px;
+  width: 100%;
+  overflow: hidden;
+}
+
+.selected-text {
+  font-family: "Pretendard", sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  color: black;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.placeholder-text {
+  font-family: "Pretendard", sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--tothezip-gray-04);
+}
+
+.options-tags {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.option-tag {
+  background: var(--tothezip-orange-02, #fff4ed);
+  color: var(--tothezip-orange-06);
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.more-options {
+  color: var(--tothezip-gray-05);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.divider {
+  width: 0;
+  height: 26px;
+  border-left: 1px solid var(--tothezip-gray-02);
+  margin: 0 8px;
+  transition: opacity 0.2s ease;
+}
+
+.divider.hidden {
+  opacity: 0;
+}
+
+/* 패널 스타일 */
+.panel-container {
+  position: absolute;
+  top: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: auto;
+  min-width: 650px;
+  z-index: 201;
+  max-height: calc(100vh - 200px);
+  overflow: visible;
+  transform-origin: center top;
+}
+
+/* 헤더에서 사용하는 패널 크기 조정 */
+.panel-container :deep(.region-panel),
+.panel-container :deep(.property-panel) {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.panel-container :deep(.options-panel) {
+  max-height: calc(100vh - 150px);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* 옵션 패널 버튼 크기 축소 */
+.panel-container :deep(.options-panel .toggle-button) {
+  padding: 6px 12px;
+  font-size: 12px;
+  min-width: 60px;
+}
+
+.panel-container :deep(.options-panel .toggle-buttons) {
+  gap: 6px;
+}
+
+.panel-container :deep(.options-panel .option-title) {
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+/* 검색 오버레이 */
+.search-overlay {
+  position: fixed;
+  top: 80px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.slide-fade-enter-active {
+  transition: all 0.25s ease-out;
+}
+
+.slide-fade-leave-active {
+  transition: all 0.2s ease-in;
+}
+
+.slide-fade-enter-from {
+  transform: translateX(-50%) translateY(-10px) scaleY(0.8);
+  opacity: 0;
+}
+
+.slide-fade-leave-to {
+  transform: translateX(-50%) translateY(-10px) scaleY(0.8);
+  opacity: 0;
 }
 
 /* 로고 영역 */
@@ -431,12 +1064,6 @@ export default {
 }
 
 .nav-link {
-  /* font-family: "Pretendard", sans-serif;
-  font-size: 14px;
-  font-weight: 500;
-  color: #000;
-  text-decoration: none;
-  transition: color 0.2s; */
   font-family: "Pretendard Variable", sans-serif;
   font-weight: 500;
   font-size: 14px;
@@ -459,12 +1086,13 @@ export default {
 }
 
 .user-name {
-  background-color: rgba(255, 156, 51, 0.15); /* 연한 주황 */
+  background-color: rgba(255, 156, 51, 0.15);
   color: #ff9c33;
   font-weight: 600;
   padding: 4px 8px;
   border-radius: 8px;
   margin-right: 4px;
+  cursor: pointer;
 }
 
 .hello-text {
@@ -472,7 +1100,7 @@ export default {
   font-weight: 500;
 }
 
-/* 반응형: 좁아지면 검색바 폭 줄이고, 더 좁으면 숨김 */
+/* 반응형 */
 @media (max-width: 900px) {
   .search-bar {
     width: 320px;
