@@ -496,7 +496,7 @@ export default {
   letter-spacing: -0.08px;
 }
 
-/* 🎨 예쁜 뒤로가기 버튼 */
+/* 예쁜 뒤로가기 버튼 */
 .back-btn {
   position: absolute;
   left: 18px;

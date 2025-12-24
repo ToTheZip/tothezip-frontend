@@ -24,6 +24,7 @@ import { useUIStore } from "@/stores/ui";
 import PreferenceForm from "@/components/signup/PreferenceForm.vue";
 import { getPreferenceTags, getPreferenceRange } from "@/api/preference";
 import { resolveTags } from "@/api/property";
+import { http } from "@/api/http";
 
 const ui = useUIStore();
 const panelRef = ref(null);
@@ -121,7 +122,6 @@ async function savePreference() {
     await http.put("/user/preferences", form.value);
     alert("관심사항 변경 완료");
 
-    alert("관심사항이 변경되었습니다.");
     ui.closePreferenceEdit();
   } catch (e) {
     alert("관심사항 변경 중 오류가 발생했어요.");
