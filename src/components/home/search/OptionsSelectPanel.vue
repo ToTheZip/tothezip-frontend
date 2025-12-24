@@ -86,9 +86,11 @@
                   <div
                     class="range-progress"
                     :style="{
-                      left: (localOptions.areaMin / 100) * 100 + '%',
+                      left:
+                        ((localOptions.areaMin - 1) / (100 - 1)) * 100 + '%',
                       width:
-                        ((localOptions.areaMax - localOptions.areaMin) / 100) *
+                        ((localOptions.areaMax - localOptions.areaMin) /
+                          (100 - 1)) *
                           100 +
                         '%',
                     }"
@@ -96,17 +98,17 @@
                   <input
                     type="range"
                     v-model.number="localOptions.areaMin"
-                    min="0"
+                    min="1"
                     max="100"
-                    step="5"
+                    step="1"
                     class="range-slider range-min"
                   />
                   <input
                     type="range"
                     v-model.number="localOptions.areaMax"
-                    min="0"
+                    min="1"
                     max="100"
-                    step="5"
+                    step="1"
                     class="range-slider range-max"
                   />
                 </div>
@@ -126,9 +128,9 @@
                   <div
                     class="range-progress"
                     :style="{
-                      left: (localOptions.floorMin / 50) * 100 + '%',
+                      left: ((localOptions.floorMin - 1) / 99) * 100 + '%',
                       width:
-                        ((localOptions.floorMax - localOptions.floorMin) / 50) *
+                        ((localOptions.floorMax - localOptions.floorMin) / 99) *
                           100 +
                         '%',
                     }"
@@ -136,16 +138,16 @@
                   <input
                     type="range"
                     v-model.number="localOptions.floorMin"
-                    min="0"
-                    max="50"
+                    min="1"
+                    max="100"
                     step="1"
                     class="range-slider range-min"
                   />
                   <input
                     type="range"
                     v-model.number="localOptions.floorMax"
-                    min="0"
-                    max="50"
+                    min="1"
+                    max="100"
                     step="1"
                     class="range-slider range-max"
                   />
@@ -167,13 +169,13 @@
                     class="range-progress"
                     :style="{
                       left:
-                        ((localOptions.buildYearMin - 1970) / (2025 - 1970)) *
+                        ((localOptions.buildYearMin - 1960) / (2025 - 1960)) *
                           100 +
                         '%',
                       width:
                         ((localOptions.buildYearMax -
                           localOptions.buildYearMin) /
-                          (2025 - 1970)) *
+                          (2025 - 1960)) *
                           100 +
                         '%',
                     }"
@@ -181,7 +183,7 @@
                   <input
                     type="range"
                     v-model.number="localOptions.buildYearMin"
-                    min="1970"
+                    min="1960"
                     max="2025"
                     step="1"
                     class="range-slider range-min"
@@ -189,7 +191,7 @@
                   <input
                     type="range"
                     v-model.number="localOptions.buildYearMax"
-                    min="1970"
+                    min="1960"
                     max="2025"
                     step="1"
                     class="range-slider range-max"
@@ -540,11 +542,11 @@ export default {
         jeonseMax: 100000,
         buyMin: 0,
         buyMax: 50,
-        areaMin: 0,
+        areaMin: 1,
         areaMax: 100,
-        floorMin: 0,
-        floorMax: 50,
-        buildYearMin: 1970,
+        floorMin: 1,
+        floorMax: 100,
+        buildYearMin: 1960,
         buildYearMax: 2025,
         ratingMin: 0,
         ratingMax: 5,
