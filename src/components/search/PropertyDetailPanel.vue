@@ -1,180 +1,196 @@
 <template>
   <div
-    class="property-detail-panel"
+    class="detail-shell"
     @click.stop
     @mousedown.stop
     @pointerdown.stop
     @touchstart.stop
   >
-    <div class="detail-panel-content">
-      <div class="detail-top-bar">
-        <button class="back-button" @click="$emit('close')">
-          <ChevronLeft />
-        </button>
-      </div>
-
-      <!-- 이미지 -->
-      <div class="images-area">
-        <div class="main-image-wrapper">
-          <div class="main-image-box">
-            <img
-              :src="mainImage"
-              :alt="property.name"
-              class="main-image"
-              @click.stop="
-                console.log('main clicked');
-                openGallery(0);
-              "
-            />
-          </div>
+    <div class="property-detail-panel">
+      <div class="detail-panel-content">
+        <div class="detail-top-bar">
+          <button class="back-button" @click="$emit('close')">
+            <ChevronLeft />
+          </button>
         </div>
 
-        <div class="sub-images-wrapper">
-          <div
-            v-for="(img, index) in subThumbs"
-            :key="index"
-            class="sub-image-box"
-          >
-            <img
-              :src="img"
-              :alt="`${property.name} ${index + 2}`"
-              class="sub-image"
-              @click="openGallery(index + 1)"
-            />
+        <!-- 이미지 -->
+        <div class="images-area">
+          <div class="main-image-wrapper">
+            <div class="main-image-box">
+              <img
+                :src="mainImage"
+                :alt="property.name"
+                class="main-image"
+                @click.stop="
+                  console.log('main clicked');
+                  openGallery(0);
+                "
+              />
+            </div>
+          </div>
 
+          <div class="sub-images-wrapper">
             <div
-              v-if="index === 3 && remainingCount > 0"
-              class="image-more-overlay"
-              @click.stop="openGallery(index + 1)"
+              v-for="(img, index) in subThumbs"
+              :key="index"
+              class="sub-image-box"
             >
-              <span class="more-text">+ {{ remainingCount }}</span>
+              <img
+                :src="img"
+                :alt="`${property.name} ${index + 2}`"
+                class="sub-image"
+                @click="openGallery(index + 1)"
+              />
+
+              <div
+                v-if="index === 3 && remainingCount > 0"
+                class="image-more-overlay"
+                @click.stop="openGallery(index + 1)"
+              >
+                <span class="more-text">+ {{ remainingCount }}</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- 건물 정보 -->
-      <div class="building-info-section">
-        <div class="tags-row-detail">
-          <span v-for="tag in property.tags" :key="tag" class="detail-tag">
-            #{{ tag }}
-          </span>
-        </div>
-
-        <div class="building-name">
-          <h2>{{ property.name }}</h2>
-        </div>
-
-        <div class="building-details">
-          <div class="detail-row">
-            <MapPin :size="15" />
-            <span class="detail-text">{{ property.address }}</span>
+        <!-- 건물 정보 -->
+        <div class="building-info-section">
+          <div class="tags-row-detail">
+            <span v-for="tag in property.tags" :key="tag" class="detail-tag">
+              #{{ tag }}
+            </span>
           </div>
 
-          <div class="detail-row">
-            <Building />
-            <span class="detail-text">{{ property.buildYear }}</span>
+          <div class="building-name">
+            <h2>{{ property.name }}</h2>
+          </div>
+
+          <div class="building-details">
+            <div class="detail-row">
+              <MapPin :size="15" />
+              <span class="detail-text">{{ property.address }}</span>
+            </div>
+
+            <div class="detail-row">
+              <Building />
+              <span class="detail-text">{{ property.buildYear }}</span>
+            </div>
+          </div>
+          <!-- 계약서 인증 버튼 추가 -->
+          <div class="contract-verify-section">
+            <button class="contract-verify-button" @click="openContractPanel">
+              <FileText :size="16" />
+              <span>계약서 인증</span>
+            </button>
           </div>
         </div>
-      </div>
 
-      <!-- 거래 기록 -->
-      <div class="section-divider">
-        <div class="section-title-row">
-          <h3 class="section-title">거래 기록</h3>
+        <!-- 거래 기록 -->
+        <div class="section-divider">
+          <div class="section-title-row">
+            <h3 class="section-title">거래 기록</h3>
 
-          <!-- 옵션(선택): 평균/중앙값 토글 -->
-          <button
-            class="tiny-toggle"
-            type="button"
-            @click="priceMode = priceMode === 'median' ? 'avg' : 'median'"
-          >
-            {{ priceMode === "median" ? "중앙값" : "평균" }}
-          </button>
+            <!-- 옵션(선택): 평균/중앙값 토글 -->
+            <button
+              class="tiny-toggle"
+              type="button"
+              @click="priceMode = priceMode === 'median' ? 'avg' : 'median'"
+            >
+              {{ priceMode === "median" ? "중앙값" : "평균" }}
+            </button>
+          </div>
+
+          <div v-if="priceLoading" class="chart-placeholder">
+            <p>불러오는 중...</p>
+          </div>
+          <div v-else-if="priceError" class="chart-placeholder">
+            <p>{{ priceError }}</p>
+          </div>
+          <div v-else-if="priceSeries.length === 0" class="chart-placeholder">
+            <p>최근 5년 거래 데이터가 없어요.</p>
+          </div>
+          <PriceChart v-else :points="priceSeries" :mode="priceMode" />
         </div>
 
-        <div v-if="priceLoading" class="chart-placeholder">
-          <p>불러오는 중...</p>
-        </div>
-        <div v-else-if="priceError" class="chart-placeholder">
-          <p>{{ priceError }}</p>
-        </div>
-        <div v-else-if="priceSeries.length === 0" class="chart-placeholder">
-          <p>최근 5년 거래 데이터가 없어요.</p>
-        </div>
-        <PriceChart v-else :points="priceSeries" :mode="priceMode" />
-      </div>
+        <!-- 매물 -->
+        <div class="section-divider">
+          <h3 class="section-title">매물</h3>
+          <div class="listings-area">
+            <div v-if="listingsLoading" class="listings-placeholder">
+              <p>불러오는 중...</p>
+            </div>
 
-      <!-- 매물 -->
-      <div class="section-divider">
-        <h3 class="section-title">매물</h3>
-        <div class="listings-area">
-          <div v-if="listingsLoading" class="listings-placeholder">
+            <div v-else-if="listingsError" class="listings-placeholder">
+              <p>{{ listingsError }}</p>
+            </div>
+
+            <div v-else-if="listings.length === 0" class="listings-placeholder">
+              <p>등록된 매물이 없어요.</p>
+            </div>
+
+            <div v-else class="listings-list">
+              <ListingItem
+                v-for="item in listings"
+                :key="item.propertyId"
+                :listing="item"
+                @toggle-like="toggleListingLike"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- 리뷰 -->
+        <div class="section-divider">
+          <div class="section-title-row">
+            <h3 class="section-title">
+              리뷰
+              <span class="review-count">({{ reviewsTotalCount }})</span>
+            </h3>
+
+            <button
+              class="reviews-more-button"
+              type="button"
+              @click.stop.prevent="
+                $emit('open-reviews', {
+                  aptSeq: property.aptSeq,
+                  name: property.name,
+                })
+              "
+              @mousedown.stop
+              @pointerdown.stop
+              @touchstart.stop
+              aria-label="전체 리뷰 보기"
+            >
+              <ChevronRight class="chevron-icon" />
+            </button>
+          </div>
+
+          <div v-if="reviewsLoading" class="reviews-placeholder">
             <p>불러오는 중...</p>
           </div>
 
-          <div v-else-if="listingsError" class="listings-placeholder">
-            <p>{{ listingsError }}</p>
+          <div v-else-if="reviewsError" class="reviews-placeholder">
+            <p>{{ reviewsError }}</p>
           </div>
 
-          <div v-else-if="listings.length === 0" class="listings-placeholder">
-            <p>등록된 매물이 없어요.</p>
+          <div v-else-if="reviews.length === 0" class="reviews-placeholder">
+            <p>등록된 리뷰가 없어요.</p>
           </div>
 
-          <div v-else class="listings-list">
-            <ListingItem
-              v-for="item in listings"
-              :key="item.propertyId"
-              :listing="item"
-              @toggle-like="toggleListingLike"
-            />
+          <div v-else class="reviews-list">
+            <ReviewItem v-for="r in reviews" :key="r.reviewId" :review="r" />
           </div>
-        </div>
-      </div>
-
-      <!-- 리뷰 -->
-      <div class="section-divider">
-        <div class="section-title-row">
-          <h3 class="section-title">
-            리뷰
-            <span class="review-count">({{ reviewsTotalCount }})</span>
-          </h3>
-
-          <button
-            class="reviews-more-button"
-            type="button"
-            @click.stop.prevent="
-              $emit('open-reviews', {
-                aptSeq: property.aptSeq,
-                name: property.name,
-              })
-            "
-            @mousedown.stop
-            @pointerdown.stop
-            @touchstart.stop
-            aria-label="전체 리뷰 보기"
-          >
-            <ChevronRight class="chevron-icon" />
-          </button>
-        </div>
-
-        <div v-if="reviewsLoading" class="reviews-placeholder">
-          <p>불러오는 중...</p>
-        </div>
-
-        <div v-else-if="reviewsError" class="reviews-placeholder">
-          <p>{{ reviewsError }}</p>
-        </div>
-
-        <div v-else-if="reviews.length === 0" class="reviews-placeholder">
-          <p>등록된 리뷰가 없어요.</p>
-        </div>
-
-        <div v-else class="reviews-list">
-          <ReviewItem v-for="r in reviews" :key="r.reviewId" :review="r" />
         </div>
       </div>
     </div>
+    <!-- 계약서 인증 패널 -->
+    <ContractVerificationPanel
+      :is-open="contractPanelOpen"
+      :property="property"
+      @close="closeContractPanel"
+      @submit="handleContractSubmit"
+    />
   </div>
 
   <ImageGallery
@@ -199,6 +215,8 @@ import ListingItem from "@/components/search/ListingItem.vue";
 import ReviewItem from "@/components/search/ReviewItem.vue";
 import ImageGallery from "@/components/search/ImageGallery.vue";
 import PriceChart from "@/components/search/PriceChart.vue";
+import FileText from "@/components/icons/FileText.vue";
+import ContractVerificationPanel from "@/components/search/ContractVerificationPanel.vue";
 
 const API_BASE = import.meta.env.VITE_API_BASE;
 
@@ -209,10 +227,12 @@ export default {
     ChevronRight,
     MapPin,
     Building,
+    FileText,
     ListingItem,
     ReviewItem,
     ImageGallery,
     PriceChart,
+    ContractVerificationPanel,
   },
   props: {
     property: { type: Object, required: true },
@@ -266,6 +286,8 @@ export default {
       priceLoading: false,
       priceError: "",
       priceMode: "avg", // or "avg"
+
+      contractPanelOpen: false,
     };
   },
   watch: {
@@ -280,6 +302,45 @@ export default {
   },
 
   methods: {
+    /* =========================
+        계약서 인증 패널
+      ========================= */
+    openContractPanel() {
+      this.contractPanelOpen = true;
+    },
+
+    closeContractPanel() {
+      this.contractPanelOpen = false;
+    },
+
+    async handleContractSubmit(formData) {
+      const auth = useAuthStore();
+      if (!auth.accessToken) {
+        alert("로그인 후 이용해주세요");
+        this.$router.push("/login");
+        return;
+      }
+
+      try {
+        const response = await axios.post(
+          `${API_BASE}/contract/verify`,
+          formData,
+          {
+            headers: {
+              Authorization: `Bearer ${auth.accessToken}`,
+              "Content-Type": "multipart/form-data",
+            },
+            withCredentials: true,
+          }
+        );
+
+        alert("계약서 인증이 요청되었습니다. 검토 후 승인됩니다.");
+        this.closeContractPanel();
+      } catch (e) {
+        console.error(e);
+        alert("계약서 인증에 실패했습니다.");
+      }
+    },
     /* =========================
         매물 찜 토글
       ========================= */
@@ -352,7 +413,7 @@ export default {
         const auth = useAuthStore();
 
         const [listRes, favRes] = await Promise.all([
-          axios.get(`/property/${aptSeq}/listings`),
+          axios.get(`${API_BASE}/property/${aptSeq}/listings`),
           auth.accessToken
             ? axios.get(`${API_BASE}/favorite`, {
                 params: { type: "매물" },
@@ -454,19 +515,6 @@ export default {
 </script>
 
 <style scoped>
-.property-detail-panel {
-  position: absolute;
-  left: 277px;
-  top: 7px;
-  width: 270px;
-  height: calc(100% - 14px);
-  background: #ffffff;
-  border-radius: 20px;
-  box-shadow: 2px 4px 4px 0px rgba(0, 0, 0, 0.25);
-  overflow: hidden;
-  z-index: 200;
-}
-
 .detail-panel-content {
   width: 100%;
   height: 100%;
@@ -632,7 +680,6 @@ export default {
 }
 
 .chart-placeholder,
-.listings-placeholder,
 .reviews-placeholder {
   padding: 20px;
   background: rgba(244, 236, 231, 0.3);
@@ -726,5 +773,25 @@ export default {
   padding: 4px 8px;
   font-size: 10px;
   cursor: pointer;
+}
+
+.detail-shell {
+  position: absolute;
+  left: calc(var(--sidebar-w) + var(--panel-gap));
+  top: 7px;
+  width: 270px;
+  height: calc(100% - 14px);
+  z-index: 200;
+  overflow: visible;
+}
+
+.property-detail-panel {
+  position: relative;
+  width: 270px;
+  height: 100%;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 2px 4px 4px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
 }
 </style>

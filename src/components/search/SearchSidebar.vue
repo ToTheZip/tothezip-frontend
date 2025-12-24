@@ -4,16 +4,21 @@
     <div class="mode-toggle">
       <button
         class="mode-btn"
-        :class="{ active: tabMode === 'ALL' }"
-        :disabled="entryMode === 'FAVORITE'"
+        :class="[
+          { active: tabMode === 'ALL' },
+          { faded: entryMode === 'FAVORITE' },
+        ]"
         @click="$emit('change-mode', 'ALL')"
       >
         전체
       </button>
+
       <button
         class="mode-btn"
-        :class="{ active: tabMode === 'RECO' }"
-        :disabled="entryMode === 'FAVORITE'"
+        :class="[
+          { active: tabMode === 'RECO' },
+          { faded: entryMode === 'FAVORITE' },
+        ]"
         @click="$emit('change-mode', 'RECO')"
       >
         추천
@@ -39,6 +44,7 @@
         :key="property.id"
         :property="property"
         :selected="String(property.aptSeq) === String(selectedAptSeq)"
+        @go-map="onGoMap"
         @click="$emit('select-property', property)"
       />
     </div>
@@ -85,8 +91,11 @@ export default {
       default: "",
     },
   },
-  emits: ["change-mode", "select-property"],
+  emits: ["change-mode", "select-property", "go-map"],
   methods: {
+    onGoMap(payload) {
+      this.$emit("go-map", payload);
+    },
     scrollToCard(aptSeq) {
       if (!aptSeq) return;
 
@@ -186,5 +195,19 @@ export default {
   text-align: center;
   color: #888;
   font-size: 14px;
+}
+
+.mode-btn.faded {
+  opacity: 0.55; /* 색 빠진 느낌 */
+  background: #fff;
+  color: var(--tothezip-gray-05);
+  border-color: rgba(163, 151, 143, 0.35);
+}
+
+/* 찜 상태에서 active여도 강조를 약하게 하고 싶으면 */
+.mode-btn.faded.active {
+  opacity: 0.75;
+  background: #fff; /* active 배경 제거 */
+  color: #111; /* 글씨만 살짝 */
 }
 </style>
