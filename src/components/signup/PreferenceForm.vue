@@ -49,7 +49,7 @@
               <select
                 class="select"
                 v-model="local.gugun"
-                :disabled="!local.sido || loadingGugun || guguns.length === 0"
+                :disabled="!local.sido || loadingGugun"
               >
                 <option value="">
                   {{
@@ -167,7 +167,7 @@
         <!-- 완료 버튼 -->
         <div class="actions">
           <button class="complete-btn" type="button" @click="$emit('complete')">
-            회원가입 완료
+            완료
           </button>
         </div>
       </div>
@@ -238,6 +238,21 @@ export default {
   },
 
   watch: {
+    modelValue: {
+      immediate: true,
+      deep: true,
+      handler(v) {
+        this.local = {
+          sido: v.sido ?? "",
+          gugun: v.gugun ?? "",
+          tagIds: Array.isArray(v.tagIds) ? [...v.tagIds] : [],
+          minFloor: v.minFloor ?? 1,
+          maxFloor: v.maxFloor ?? 100,
+          minArea: v.minArea ?? 1,
+          maxArea: v.maxArea ?? 300,
+        };
+      },
+    },
     local: {
       deep: true,
       handler(v) {
@@ -250,6 +265,14 @@ export default {
           minArea: v.minArea === "" ? null : Number(v.minArea),
           maxArea: v.maxArea === "" ? null : Number(v.maxArea),
         });
+      },
+    },
+    "local.sido": {
+      immediate: true,
+      async handler(sido) {
+        console.log("[WATCH SIDO]", sido);
+        if (!sido) return;
+        await this.loadGuguns(sido);
       },
     },
   },
@@ -300,33 +323,49 @@ export default {
       }
     },
 
+    // async loadGuguns(sido) {
+    //   this.loadingGugun = true;
+    //   this.errRegion = "";
+    //   try {
+    //     const r = await fetch(
+    //       `${API_BASE}/property/regions/gugun?sido=${encodeURIComponent(sido)}`,
+    //       { method: "GET", credentials: "include" }
+    //     );
+    //     if (!r.ok) {
+    //       const text = await r.text().catch(() => "");
+    //       console.error("[gugun] status=", r.status, text);
+    //       this.errRegion =
+    //         r.status === 403
+    //           ? "구 목록 조회가 403입니다. (백엔드 permitAll 필요)"
+    //           : "구 목록을 불러오지 못했어요.";
+    //       return;
+    //     }
+    //     const data = await r.json();
+    //     this.guguns = this.normalizeToStringList(data, ["gugunName", "gugun"]);
+    //   } catch (e) {
+    //     console.error("[gugun] error=", e);
+    //     this.errRegion = "구 목록 조회 중 네트워크 오류가 발생했어요.";
+    //   } finally {
+    //     this.loadingGugun = false;
+    //   }
+    // },
     async loadGuguns(sido) {
       this.loadingGugun = true;
-      this.errRegion = "";
       try {
         const r = await fetch(
           `${API_BASE}/property/regions/gugun?sido=${encodeURIComponent(sido)}`,
           { method: "GET", credentials: "include" }
         );
-        if (!r.ok) {
-          const text = await r.text().catch(() => "");
-          console.error("[gugun] status=", r.status, text);
-          this.errRegion =
-            r.status === 403
-              ? "구 목록 조회가 403입니다. (백엔드 permitAll 필요)"
-              : "구 목록을 불러오지 못했어요.";
-          return;
-        }
+
         const data = await r.json();
+        console.log("[GUGUN RAW DATA]", data);
+
         this.guguns = this.normalizeToStringList(data, ["gugunName", "gugun"]);
-      } catch (e) {
-        console.error("[gugun] error=", e);
-        this.errRegion = "구 목록 조회 중 네트워크 오류가 발생했어요.";
+        console.log("[GUGUN PARSED]", this.guguns);
       } finally {
         this.loadingGugun = false;
       }
     },
-
     async loadTags() {
       this.loadingTags = true;
       this.errTags = "";

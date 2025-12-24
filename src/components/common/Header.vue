@@ -107,12 +107,28 @@
               </svg>
             </button>
 
-            <div class="profile-button" v-if="isLoggedIn" @click="goMyPage">
-              <img :src="profileImg" alt="Profile" class="profile-image" />
+            <!-- 프로필 버튼 -->
+            <div class="profile-button" @click.stop="ui.toggleProfileMenu">
+              <img :src="profileImg" class="profile-image" />
             </div>
-            <router-link to="/" class="nav-link" @click="logout"
+
+            <!-- 프로필 메뉴 -->
+            <transition name="slide-down">
+              <ProfileMenuPanel
+                v-if="ui.showProfileMenu"
+                ref="profilePanelRef"
+                @logout="logout"
+                @withdraw="withdraw"
+                @editPreference="ui.openPreferenceEdit"
+              />
+            </transition>
+
+            <!-- ⭐ 관심 수정 패널 -->
+            <PreferenceEditPanel />
+
+            <!-- <router-link to="/" class="nav-link" @click="logout"
               >로그아웃</router-link
-            >
+            > -->
           </div>
         </template>
       </div>
@@ -122,10 +138,39 @@
 
 <script>
 import { useAuthStore } from "@/stores/auth";
-import { computed } from "vue";
+import { computed, ref, onMounted, onBeforeUnmount } from "vue";
 import { logoutApi } from "@/api/auth";
-import { useUIStore } from "@/stores/ui";
 
+import { useUIStore } from "@/stores/ui";
+import ProfileMenuPanel from "@/components/profile/ProfileMenuPanel.vue";
+import PreferenceEditPanel from "@/components/profile/PreferenceEditPanel.vue";
+
+const profilePanelRef = ref(null);
+
+const ui = {
+  showProfileMenu: ref(false),
+  toggleProfileMenu() {
+    this.showProfileMenu.value = !this.showProfileMenu.value;
+  },
+  closeProfileMenu() {
+    this.showProfileMenu.value = false;
+  },
+};
+
+// 바깥 클릭 시 닫기
+const onClickOutside = (e) => {
+  if (profilePanelRef.value && !profilePanelRef.value.$el.contains(e.target)) {
+    ui.closeProfileMenu();
+  }
+};
+
+onMounted(() => {
+  document.addEventListener("click", onClickOutside);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("click", onClickOutside);
+});
 // export default {
 //   name: "NavigationBar",
 //   setup() {
@@ -140,6 +185,9 @@ import { useUIStore } from "@/stores/ui";
 export default {
   name: "Header",
   computed: {
+    ui() {
+      return useUIStore();
+    },
     auth() {
       return useAuthStore();
     },
@@ -155,7 +203,19 @@ export default {
       );
     },
   },
+  components: {
+    ProfileMenuPanel,
+    PreferenceEditPanel,
+  },
   methods: {
+    toggleProfileMenu() {
+      const ui = useUIStore();
+      ui.toggleProfileMenu();
+    },
+    openPreferenceEdit() {
+      const ui = useUIStore();
+      ui.openPreferenceEdit();
+    },
     async onSearch() {
       const ui = useUIStore();
 
