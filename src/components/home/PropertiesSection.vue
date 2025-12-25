@@ -8,12 +8,12 @@
           >, 추천 매물을 준비했어요
         </template>
         <template v-else>
-          실시간
-          <span class="highlight">인기 매물</span>을 추천할게요.
+          두집이가 추천하는
+          <span class="highlight">인기 매물</span> 보고가세요
         </template>
       </div>
 
-      <div class="section-tags">
+      <div class="section-tags" v-if="isLoggedIn">
         <button
           v-for="tag in tags"
           :key="tag"
@@ -68,7 +68,7 @@ export default {
 
 .section-title {
   font-family: "Pretendard", sans-serif;
-  font-weight: 500;
+  font-weight: 700;
   font-size: 20px;
   color: black;
   line-height: normal;

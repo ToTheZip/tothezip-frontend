@@ -2,7 +2,7 @@
   <footer class="footer">
     <div class="footer-content">
       <div class="project-info">
-        <p class="brand">ToTheZip</p>
+        <p class="brand">ⓒ ToTheZip</p>
         <p>기획 / 개발 : 김예성, 박서현</p>
         <p class="link">주소 : https://github.com/ToTheZip</p>
       </div>

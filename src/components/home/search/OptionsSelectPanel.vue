@@ -540,7 +540,7 @@ export default {
         nearSchool: false,
         nearHospital: false,
         nearCulture: false,
-        dealType: [],
+        dealType: ["월세", "전세", "매매"],
         depositMin: 0,
         depositMax: 100000,
         monthlyRentMin: 0,
