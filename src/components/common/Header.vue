@@ -193,7 +193,7 @@
         <template v-else>
           <div class="nav-menu">
             <div class="greeting" v-if="auth.user?.userName">
-              <span class="user-name" @click="goMyPage">{{
+              <span class="user-name">{{
                 auth.user.userName
               }}</span>
               <span class="hello-text">님, 안녕하세요!</span>
@@ -369,11 +369,16 @@ export default {
       return !!this.auth.accessToken;
     },
     profileImg() {
-      return (
-        this.auth.user?.profileImageUrl ||
-        this.auth.user?.profileImage ||
-        new URL("@/assets/images/login_dozip.png", import.meta.url).href
-      );
+      const img = this.auth.user?.profileImg;
+      if (!img) {
+        return new URL("@/assets/images/login_dozip.png", import.meta.url).href;
+      }
+      // If the path starts with /uploads/, prepend API base
+      if (img.startsWith("/uploads/")) {
+        const API_BASE = import.meta.env.VITE_API_BASE || "";
+        return API_BASE + img;
+      }
+      return img;
     },
     visibleOptionTags() {
       return this.selectedOptions.slice(0, 3);
@@ -1101,7 +1106,7 @@ export default {
   padding: 4px 8px;
   border-radius: 8px;
   margin-right: 4px;
-  cursor: pointer;
+  cursor: default;
 }
 
 .hello-text {

@@ -256,6 +256,9 @@ export default {
         return Number.isFinite(lat) && Number.isFinite(lng);
       });
     },
+    allMarkerProperties() {
+      return this.validProperties;
+    },
     markerBuildings() {
       const map = new Map();
 
