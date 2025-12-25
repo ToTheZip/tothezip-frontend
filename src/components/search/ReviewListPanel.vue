@@ -174,7 +174,7 @@ export default {
     aptSeq: { type: String, required: true },
     buildingName: { type: String, default: "" },
   },
-  emits: ["close"],
+  emits: ["close", "open-contract-panel"],
   data() {
     return {
       reviews: [],
@@ -278,14 +278,44 @@ export default {
       };
     },
 
-    toggleWritePopup() {
+    async toggleWritePopup() {
+      // 1. 이미 열려있으면 닫기
       if (this.showWritePopup) {
         this.closeWriteForm();
         return;
       }
-      this.showWritePopup = true;
-      this.submitError = "";
-      this.$nextTick(() => this.repositionPopover());
+
+      // 2. 로그인 체크
+      const auth = useAuthStore();
+      if (!auth.accessToken) {
+        alert("로그인이 필요합니다.");
+        this.$router.push("/login");
+        return;
+      }
+
+      // 3. 계약 인증 체크
+      try {
+        const { data: isVerified } = await axios.get(`${http.defaults.baseURL}/user/certification/check`, {
+          params: { aptSeq: this.aptSeq },
+          headers: { Authorization: `Bearer ${auth.accessToken}` },
+        });
+
+        if (!isVerified) {
+          if (confirm("🔒 이 건물의 계약서 인증이 필요합니다.\n인증하시겠습니까? (인증 화면으로 이동)")) {
+            this.$emit("open-contract-panel");
+          }
+          return;
+        }
+
+        // 인증됨 -> 작성 폼 열기
+        this.showWritePopup = true;
+        this.submitError = "";
+        this.$nextTick(() => this.repositionPopover());
+
+      } catch (e) {
+        console.error(e);
+        alert("인증 정보를 확인하는 중 오류가 발생했습니다.");
+      }
     },
 
     closeWriteForm() {

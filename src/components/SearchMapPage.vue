@@ -119,15 +119,18 @@
       @change-mode="setTabMode"
       @select-property="selectProperty"
       @go-map="handleGoMap"
+      @remove-tag="handleRemoveTag"
     />
 
     <!-- ================== PANELS ================== -->
     <PropertyDetailPanel
       v-if="selectedProperty && !showReviewPanel"
       :property="selectedProperty"
+      :open-contract-immediate="shouldOpenContract"
       @close="closeDetailPanel"
       @favorite-empty="removeFavoriteBuilding"
       @open-reviews="openReviewsPanel"
+      @contract-panel-closed="shouldOpenContract = false"
     />
 
     <ReviewListPanel
@@ -135,6 +138,7 @@
       :apt-seq="reviewTarget.aptSeq"
       :building-name="reviewTarget.name"
       @close="closeReviewsPanel"
+      @open-contract-panel="handleOpenContractPanel"
     />
   </div>
 </template>
@@ -197,9 +201,9 @@ export default {
         imageOption: {},
       },
       hoveredKey: null,
+      shouldOpenContract: false,
     };
   },
-
   computed: {
     isClusterMode() {
       return this.level >= 6;
@@ -260,6 +264,71 @@ export default {
     },
   },
   methods: {
+    handleOpenContractPanel() {
+      // 리뷰 패널 닫고 -> 상세 패널 열기 -> 상세 패널 내부에서 인증창 열기
+      this.showReviewPanel = false;
+      this.shouldOpenContract = true;
+    },
+
+    async handleRemoveTag(tag) {
+      console.log("Remove tag:", tag);
+
+      // 1) 추천(RECO) 모드: 태그만 화면에서 제거 (데이터 필터링은 복잡하므로 스킵 or 클라이언트 필터링)
+      if (this.entryMode === "RECO") {
+        this.filterTags = this.filterTags.filter((t) => t.id !== tag.id);
+        // 필요하다면 여기서 this.properties 필터링 추가 가능
+        return;
+      }
+
+      // 2) 전체(ALL) 모드: 검색 조건 해제 후 재검색
+      if (this.entryMode === "ALL") {
+        const raw = sessionStorage.getItem("tothezip_search");
+        if (!raw) return;
+
+        const searchData = JSON.parse(raw);
+        const opt = searchData.options || {};
+
+        switch (tag.type) {
+          case "LOCATION":
+            // 지역 태그 삭제 -> 이건 검색의 핵심이라 삭제가 애매하지만, 요청대로라면 빈 값으로
+             searchData.location = ""; 
+             searchData.sido = "";
+             searchData.gugun = "";
+             searchData.dong = "";
+            break;
+          case "OPTION":
+            // 역세권 등
+            if (tag.value) opt[tag.value] = false;
+            break;
+          case "DEAL_TYPE":
+            if (opt.dealType) {
+              opt.dealType = opt.dealType.filter((d) => d !== tag.value);
+            }
+            break;
+          case "AREA":
+            opt.areaMin = null;
+            opt.areaMax = null;
+            break;
+          case "FLOOR":
+            opt.floorMin = null;
+            opt.floorMax = null;
+            break;
+          case "BUILD_YEAR":
+            opt.buildYearMin = null;
+            opt.buildYearMax = null;
+            break;
+          case "APT_NAME":
+            if (searchData.property) searchData.property.aptName = "";
+            break;
+        }
+
+        // 저장 후 재검색
+        searchData.options = opt;
+        sessionStorage.setItem("tothezip_search", JSON.stringify(searchData));
+        await this.fetchSearchResults();
+      }
+    },
+
     // 마커 툴팁 정보 생성
     getMarkerName(marker) {
       if (marker.items && marker.items.length > 1) {
@@ -505,6 +574,9 @@ export default {
     },
 
     removeFavoriteBuilding(aptSeq) {
+      // 찜 목록 모드일 때만 리스트에서 제거
+      if (this.entryMode !== "FAVORITE") return;
+
       this.properties = this.properties.filter(
         (p) => String(p.aptSeq) !== String(aptSeq)
       );
@@ -770,13 +842,13 @@ export default {
       if (pref.minArea != null || pref.maxArea != null) {
         tags.push({
           id: id++,
-          label: `희망 ${pref.minArea ?? 0}~${pref.maxArea ?? "∞"}평`,
+          label: `${pref.minArea ?? 0}~${pref.maxArea ?? "∞"}평`,
         });
       }
       if (pref.minFloor != null || pref.maxFloor != null) {
         tags.push({
           id: id++,
-          label: `희망 ${pref.minFloor ?? 1}~${pref.maxFloor ?? "∞"}층`,
+          label: `${pref.minFloor ?? 1}~${pref.maxFloor ?? "∞"}층`,
         });
       }
 
@@ -943,30 +1015,43 @@ export default {
       let id = 1;
 
       if (searchData.location)
-        tags.push({ id: id++, label: searchData.location });
-      if (opt.nearSubway) tags.push({ id: id++, label: "역세권" });
-      if (opt.nearSchool) tags.push({ id: id++, label: "학세권" });
-      if (opt.nearHospital) tags.push({ id: id++, label: "병세권" });
-      if (opt.nearCulture) tags.push({ id: id++, label: "문세권" });
-      (opt.dealType || []).forEach((d) => tags.push({ id: id++, label: d }));
+        tags.push({ id: id++, label: searchData.location, type: "LOCATION" });
+      if (opt.nearSubway)
+        tags.push({ id: id++, label: "역세권", type: "OPTION", value: "nearSubway" });
+      if (opt.nearSchool)
+        tags.push({ id: id++, label: "학세권", type: "OPTION", value: "nearSchool" });
+      if (opt.nearHospital)
+        tags.push({ id: id++, label: "병세권", type: "OPTION", value: "nearHospital" });
+      if (opt.nearCulture)
+        tags.push({ id: id++, label: "문세권", type: "OPTION", value: "nearCulture" });
+      (opt.dealType || []).forEach((d) =>
+        tags.push({ id: id++, label: d, type: "DEAL_TYPE", value: d })
+      );
 
       if (opt.areaMin != null || opt.areaMax != null)
         tags.push({
           id: id++,
           label: `${opt.areaMin ?? 0}평~${opt.areaMax ?? "∞"}평`,
+          type: "AREA",
         });
       if (opt.floorMin != null || opt.floorMax != null)
         tags.push({
           id: id++,
           label: `${opt.floorMin ?? 0}층~${opt.floorMax ?? "∞"}층`,
+          type: "FLOOR",
         });
       if (opt.buildYearMin != null || opt.buildYearMax != null)
         tags.push({
           id: id++,
           label: `${opt.buildYearMin ?? 0}년~${opt.buildYearMax ?? "현재"}년`,
+          type: "BUILD_YEAR",
         });
       if (searchData.property?.aptName)
-        tags.push({ id: id++, label: searchData.property.aptName });
+        tags.push({
+          id: id++,
+          label: searchData.property.aptName,
+          type: "APT_NAME",
+        });
 
       return tags;
     },
@@ -1109,8 +1194,8 @@ export default {
 /* 기존 마커 스타일 */
 .count-marker {
   position: relative;
-  width: 40px;
-  height: 40px;
+  width: 55px; /* 40px -> 55px */
+  height: 55px; /* 40px -> 55px */
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1166,7 +1251,7 @@ export default {
 .marker-count {
   font-family: "Pretendard", sans-serif;
   font-weight: 800;
-  font-size: 15px;
+  font-size: 17px; /* 15px -> 17px */
   color: #ffffff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   position: relative;
@@ -1216,8 +1301,8 @@ export default {
 
 /* 클러스터 마커 */
 .count-marker.cluster {
-  width: 52px;
-  height: 52px;
+  width: 75px;
+  height: 75px;
   background: linear-gradient(
     135deg,
     var(--tothezip-ruby-04) 0%,
@@ -1232,7 +1317,7 @@ export default {
 }
 
 .count-marker.cluster .marker-count {
-  font-size: 18px;
+  font-size: 22px;
 }
 
 @keyframes pulse {

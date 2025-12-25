@@ -78,12 +78,7 @@
             </div>
           </div>
           <!-- 계약서 인증 버튼 추가 -->
-          <div class="contract-verify-section">
-            <button class="contract-verify-button" @click="openContractPanel">
-              <FileText :size="16" />
-              <span>계약서 인증</span>
-            </button>
-          </div>
+
         </div>
 
         <!-- 거래 기록 -->
@@ -148,22 +143,30 @@
               <span class="review-count">({{ reviewsTotalCount }})</span>
             </h3>
 
-            <button
-              class="reviews-more-button"
-              type="button"
-              @click.stop.prevent="
-                $emit('open-reviews', {
-                  aptSeq: property.aptSeq,
-                  name: property.name,
-                })
-              "
-              @mousedown.stop
-              @pointerdown.stop
-              @touchstart.stop
-              aria-label="전체 리뷰 보기"
-            >
-              <ChevronRight class="chevron-icon" />
-            </button>
+            <div class="review-actions-right">
+              <!-- 계약서 인증 버튼 (작게) -->
+              <button class="small-verify-btn" @click="openContractPanel">
+                <FileText :size="12" />
+                <span>인증</span>
+              </button>
+
+              <button
+                class="reviews-more-button"
+                type="button"
+                @click.stop.prevent="
+                  $emit('open-reviews', {
+                    aptSeq: property.aptSeq,
+                    name: property.name,
+                  })
+                "
+                @mousedown.stop
+                @pointerdown.stop
+                @touchstart.stop
+                aria-label="전체 리뷰 보기"
+              >
+                <ChevronRight class="chevron-icon" />
+              </button>
+            </div>
           </div>
 
           <div v-if="reviewsLoading" class="reviews-placeholder">
@@ -236,8 +239,10 @@ export default {
   },
   props: {
     property: { type: Object, required: true },
+    openContractImmediate: { type: Boolean, default: false },
   },
-  emits: ["close", "open-all-reviews", "open-reviews", "favorite-empty"],
+  emits: ["close", "open-all-reviews", "open-reviews", "favorite-empty", "contract-panel-closed"],
+
   computed: {
     allImages() {
       // DTO의 images가 있으면 그걸 우선
@@ -299,6 +304,14 @@ export default {
         this.fetchPriceSeries();
       },
     },
+    openContractImmediate: {
+      immediate: true,
+      handler(val) {
+        if (val) {
+          this.openContractPanel();
+        }
+      },
+    },
   },
 
   methods: {
@@ -323,6 +336,7 @@ export default {
 
     closeContractPanel() {
       this.contractPanelOpen = false;
+      this.$emit("contract-panel-closed");
     },
 
     async handleContractSubmit(formData) {
@@ -805,5 +819,67 @@ export default {
   border-radius: 20px;
   box-shadow: 2px 4px 4px rgba(0, 0, 0, 0.25);
   overflow: hidden;
+}
+
+/* 계약서 인증 버튼 스타일 */
+.contract-verify-section {
+  margin-top: 12px;
+  padding: 0 4px;
+}
+
+.contract-verify-button {
+  width: 100%;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: var(--tothezip-orange-01);
+  border: 1px solid var(--tothezip-orange-03);
+  border-radius: 10px;
+  color: var(--tothezip-orange-06);
+  font-family: "Pretendard", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.contract-verify-button:hover {
+  background-color: var(--tothezip-orange-02);
+  border-color: var(--tothezip-orange-04);
+  transform: translateY(-1px);
+}
+
+.contract-verify-button:active {
+  transform: translateY(0);
+}
+
+
+.review-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.small-verify-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--tothezip-orange-01);
+  border: 1px solid var(--tothezip-orange-03);
+  border-radius: 6px;
+  padding: 3px 6px;
+  color: var(--tothezip-orange-06);
+  font-family: "Pretendard", sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.small-verify-btn:hover {
+  background: var(--tothezip-orange-02);
+  transform: translateY(-1px);
 }
 </style>

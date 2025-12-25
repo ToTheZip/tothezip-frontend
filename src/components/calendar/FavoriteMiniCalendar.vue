@@ -1,5 +1,4 @@
 <template>
-  <Teleport to="body">
     <section
       v-if="ui.showFavoriteCalendar"
       class="mini-cal"
@@ -224,7 +223,6 @@
         </div>
       </div>
     </section>
-  </Teleport>
 </template>
 
 <script setup>
@@ -451,20 +449,33 @@ onBeforeUnmount(() => {
 <style scoped>
 /* ----------- Layout ----------- */
 .mini-cal {
-  display: block !important;
-  position: fixed !important;
-  top: 90px !important;
-  right: 24px !important;
+  display: block;
+  position: absolute; /* fixed -> absolute */
+  top: calc(100% + 16px); /* 100% + spacing */
+  right: -80px; /* Align nicely */
   width: 340px;
   background: var(--tothezip-cream-01);
   border: 2px solid var(--tothezip-beige-03);
-  border-radius: 24px;
-  box-shadow: 0 8px 24px rgba(75, 29, 28, 0.12);
-  z-index: 2147483647 !important;
-  padding: 20px;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(75, 29, 28, 0.15); /* Soft shadow */
+  z-index: 20000;
+  padding: 24px;
   font-family: "Pretendard", sans-serif;
   color: var(--tothezip-brown-09);
   overflow: visible;
+  animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: top right;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* ----------- Header Area ----------- */

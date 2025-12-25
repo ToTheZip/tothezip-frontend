@@ -29,7 +29,13 @@
     <div class="filter-tags-section">
       <FilterTag v-if="entryMode === 'FAVORITE'" label="❤️ 찜한 매물" />
       <template v-else>
-        <FilterTag v-for="tag in filterTags" :key="tag.id" :label="tag.label" />
+        <FilterTag
+          v-for="tag in filterTags"
+          :key="tag.id"
+          :label="tag.label"
+          :removable="entryMode !== 'RECO'"
+          @remove="$emit('remove-tag', tag)"
+        />
       </template>
     </div>
 
@@ -91,7 +97,7 @@ export default {
       default: "",
     },
   },
-  emits: ["change-mode", "select-property", "go-map"],
+  emits: ["change-mode", "select-property", "go-map", "remove-tag"],
   methods: {
     onGoMap(payload) {
       this.$emit("go-map", payload);
