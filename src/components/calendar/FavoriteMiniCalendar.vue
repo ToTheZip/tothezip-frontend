@@ -1,5 +1,5 @@
 <template>
-  <transition name="slide-down">
+  <Teleport to="body">
     <section
       v-if="ui.showFavoriteCalendar"
       class="mini-cal"
@@ -224,11 +224,11 @@
         </div>
       </div>
     </section>
-  </transition>
+  </Teleport>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onMounted, onBeforeUnmount, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useUIStore } from "@/stores/ui";
 import { useAuthStore } from "@/stores/auth";
@@ -412,6 +412,7 @@ function prevMonth() {
   const d = viewDate.value;
   viewDate.value = new Date(d.getFullYear(), d.getMonth() - 1, 1);
 }
+
 function nextMonth() {
   const d = viewDate.value;
   viewDate.value = new Date(d.getFullYear(), d.getMonth() + 1, 1);
@@ -423,6 +424,7 @@ watch(
     if (open) loadData();
   }
 );
+
 watch(
   () => [viewYear.value, viewMonth.value],
   () => {
@@ -437,22 +439,28 @@ function onDocClick(e) {
   if (!el.contains(e.target)) ui.closeFavoriteCalendar();
 }
 
-onMounted(() => document.addEventListener("click", onDocClick));
-onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
+onMounted(() => {
+  document.addEventListener("click", onDocClick);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("click", onDocClick);
+});
 </script>
 
 <style scoped>
 /* ----------- Layout ----------- */
 .mini-cal {
-  position: fixed;
-  top: 90px;
-  right: 24px;
+  display: block !important;
+  position: fixed !important;
+  top: 90px !important;
+  right: 24px !important;
   width: 340px;
   background: var(--tothezip-cream-01);
   border: 2px solid var(--tothezip-beige-03);
   border-radius: 24px;
   box-shadow: 0 8px 24px rgba(75, 29, 28, 0.12);
-  z-index: 9999;
+  z-index: 2147483647 !important;
   padding: 20px;
   font-family: "Pretendard", sans-serif;
   color: var(--tothezip-brown-09);
@@ -811,17 +819,5 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
   font-size: 11px;
   font-weight: 600;
   color: var(--tothezip-brown-06);
-}
-
-/* ----------- Transition ----------- */
-.slide-down-enter-active,
-.slide-down-leave-active {
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-}
-
-.slide-down-enter-from,
-.slide-down-leave-to {
-  opacity: 0;
-  transform: translateY(-15px) scale(0.98);
 }
 </style>

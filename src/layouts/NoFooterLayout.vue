@@ -1,6 +1,7 @@
 <template>
   <div class="layout">
     <Header />
+    <FavoriteMiniCalendar />
     <main class="content">
       <slot />
     </main>
@@ -9,9 +10,10 @@
 
 <script>
 import Header from "@/components/common/Header.vue";
+import FavoriteMiniCalendar from "@/components/calendar/FavoriteMiniCalendar.vue";
 
 export default {
-  components: { Header },
+  components: { Header, FavoriteMiniCalendar },
 };
 </script>
 
