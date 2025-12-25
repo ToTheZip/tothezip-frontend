@@ -524,7 +524,7 @@ export default {
         let data;
         try {
           const r = await axios.post(`${base}/extract`, fd, {
-            params: { llm: 1 },
+            params: { llm: 0 }, // 사용시 수정 @@
           });
           data = r.data;
         } catch (e) {

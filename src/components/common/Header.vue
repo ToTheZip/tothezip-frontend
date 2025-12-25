@@ -216,66 +216,73 @@
                 />
               </svg>
             </button>
-            <button
-              type="button"
-              class="icon-button"
-              title="마이 캘린더"
-              data-favcal-toggle="1"
-              @click="toggleCalendar"
-            >
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
+            <!-- 캘린더 버튼 Wrapper -->
+            <div class="header-menu-item relative-wrapper">
+              <button
+                type="button"
+                class="icon-button"
+                title="마이 캘린더"
+                data-favcal-toggle="1"
+                @click="toggleCalendar"
               >
-                <path
-                  d="M19 4H5C3.89543 4 3 4.89543 3 6V20C3 21.1046 3.89543 22 5 22H19C20.1046 22 21 21.1046 21 20V6C21 4.89543 20.1046 4 19 4Z"
-                  stroke="#6F3D32"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-                <path
-                  d="M16 2V6"
-                  stroke="#6F3D32"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-                <path
-                  d="M8 2V6"
-                  stroke="#6F3D32"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-                <path
-                  d="M3 10H21"
-                  stroke="#6F3D32"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </button>
-
-            <!-- 프로필 버튼 -->
-            <div class="profile-button" @click.stop="ui.toggleProfileMenu">
-              <img :src="profileImg" class="profile-image" />
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M19 4H5C3.89543 4 3 4.89543 3 6V20C3 21.1046 3.89543 22 5 22H19C20.1046 22 21 21.1046 21 20V6C21 4.89543 20.1046 4 19 4Z"
+                    stroke="#6F3D32"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M16 2V6"
+                    stroke="#6F3D32"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M8 2V6"
+                    stroke="#6F3D32"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M3 10H21"
+                    stroke="#6F3D32"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </button>
+              <!-- 캘린더 컴포넌트 -->
+              <FavoriteMiniCalendar />
             </div>
 
-            <!-- 프로필 메뉴 -->
-            <transition name="slide-down">
-              <ProfileMenuPanel
-                v-if="ui.showProfileMenu"
-                ref="profilePanelRef"
-                @logout="logout"
-                @withdraw="withdraw"
-                @editPreference="ui.openPreferenceEdit"
-              />
-            </transition>
+            <!-- 프로필 버튼 Wrapper -->
+            <div class="header-menu-item relative-wrapper">
+              <div class="profile-button" @click.stop="ui.toggleProfileMenu">
+                <img :src="profileImg" class="profile-image" />
+              </div>
+
+              <!-- 프로필 메뉴 -->
+              <transition name="slide-down">
+                <ProfileMenuPanel
+                  v-if="ui.showProfileMenu"
+                  ref="profilePanelRef"
+                  @logout="logout"
+                  @withdraw="withdraw"
+                  @editPreference="ui.openPreferenceEdit"
+                />
+              </transition>
+            </div>
 
             <!-- ⭐ 관심 수정 패널 -->
             <PreferenceEditPanel />
@@ -297,6 +304,7 @@ import PreferenceEditPanel from "@/components/profile/PreferenceEditPanel.vue";
 import RegionSelectPanel from "@/components/home/search/RegionSelectPanel.vue";
 import OptionsSelectPanel from "@/components/home/search/OptionsSelectPanel.vue";
 import PropertySearchPanel from "@/components/home/search/PropertySearchPanel.vue";
+import FavoriteMiniCalendar from "@/components/calendar/FavoriteMiniCalendar.vue"; // Import 추가
 
 const onClickOutside = (e) => {
   const ui = useUIStore();
@@ -411,6 +419,7 @@ export default {
     RegionSelectPanel,
     OptionsSelectPanel,
     PropertySearchPanel,
+    FavoriteMiniCalendar, // 추가
   },
   mounted() {
     document.addEventListener("click", this.handleClickOutside);
@@ -1015,6 +1024,15 @@ export default {
   display: flex;
   align-items: center;
   gap: 25px;
+}
+
+.icon-button {
+  width: 24px;
+/* ... */
+}
+
+.relative-wrapper {
+  position: relative;
 }
 
 .icon-button {

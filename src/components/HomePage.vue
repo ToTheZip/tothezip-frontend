@@ -98,6 +98,7 @@ export default {
       // 추천 섹션
       regionName: "",
       propertyTags: [],
+      preferences: null, // 추가
       displayProperties: [],
 
       // 뉴스 섹션
@@ -202,6 +203,7 @@ export default {
       try {
         const data = await fetchHomeRecommendations();
         console.log("HOME RECO DATA:", data);
+        console.log("PREFERENCES:", data.preferences); // 디버깅용 로그 추가
 
         const raw = (data.regionName || "").trim();
 
@@ -212,9 +214,10 @@ export default {
 
         if (region.includes(",")) region = region.split(",")[0].trim();
 
-        this.regionName = region;
 
+        this.regionName = region;
         this.propertyTags = data.facilityTags || [];
+        this.preferences = data.preferences || null; // 추가
 
         this.displayProperties = (data.properties || []).map((p) => ({
           id: p.aptSeq,
@@ -228,6 +231,7 @@ export default {
         console.error("추천 매물 로딩 실패", e);
         this.regionName = "";
         this.propertyTags = [];
+        this.preferences = null; // 초기화
         this.displayProperties = [];
       }
     },
