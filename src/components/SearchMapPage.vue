@@ -211,7 +211,10 @@ export default {
       showReviewPanel: false,
 
       filterTags: [],
-      properties: [],
+      properties: [],  // 목록 기반 매물 (검색/추천/찜)
+      viewportProperties: [],  // viewport 기반 추가 매물
+      isLoadingViewport: false,
+      lastBounds: null,  // 중복 요청 방지
       listingCountMap: {},
 
       loading: false,
@@ -249,20 +252,25 @@ export default {
     toggleLocked() {
       return false;
     },
-    validProperties() {
-      return this.properties.filter((p) => {
+    allMarkerProperties() {
+      // properties + viewportProperties 합치기 (중복 제거)
+      const map = new Map();
+      [...this.properties, ...this.viewportProperties].forEach(p => {
+        const aptSeq = String(p.aptSeq ?? p.id);
+        if (!map.has(aptSeq)) {
+          map.set(aptSeq, p);
+        }
+      });
+      return Array.from(map.values()).filter(p => {
         const lat = Number(p.latitude);
         const lng = Number(p.longitude);
         return Number.isFinite(lat) && Number.isFinite(lng);
       });
     },
-    allMarkerProperties() {
-      return this.validProperties;
-    },
     markerBuildings() {
       const map = new Map();
 
-      for (const p of this.validProperties) {
+      for (const p of this.allMarkerProperties) {
         const aptSeq = String(p.aptSeq ?? p.id);
 
         if (map.has(aptSeq)) continue;
@@ -582,7 +590,7 @@ export default {
 
     async fetchListingCounts() {
       const aptSeqs = Array.from(
-        new Set(this.validProperties.map((p) => String(p.aptSeq ?? p.id)))
+        new Set(this.properties.map((p) => String(p.aptSeq ?? p.id)))
       );
 
       const limit = 8;
@@ -729,8 +737,18 @@ export default {
         this.rebuildClusters();
       });
 
+      // viewport 기반 매물 로딩을 위한 debounced 이벤트
+      const debouncedFetchViewport = this.debounce(() =>{
+        this.fetchViewportProperties();
+      }, 500);
+
+      window.kakao.maps.event.addListener(map, "idle", debouncedFetchViewport);
+
       this.level = map.getLevel();
       this.rebuildClusters();
+      
+      // 초기 viewport 로드
+      this.fetchViewportProperties();
     },
 
     async fetchFavoriteProperties() {
@@ -1237,6 +1255,62 @@ export default {
         console.error("비교 매물 선택 오류:", e);
         alert("건물 이동 중 오류가 발생했어요.");
       }
+    },
+
+    // viewport 기반 매물 로드
+    async fetchViewportProperties() {
+      if (!this.mapRef) return;
+
+      const bounds = this.mapRef.getBounds();
+      if (!bounds) return;
+
+      const ne = bounds.getNorthEast();
+      const sw = bounds.getSouthWest();
+
+      // 같은 영역 재요청 방지
+      const boundsKey = `${sw.getLat().toFixed(4)},${sw.getLng().toFixed(4)},${ne.getLat().toFixed(4)},${ne.getLng().toFixed(4)}`;
+      if (this.lastBounds === boundsKey) return;
+
+      this.lastBounds = boundsKey;
+      this.isLoadingViewport = true;
+
+      try {
+        const { data } = await axios.get(`${API_BASE}/property/map-viewport`, {
+          params: {
+            minLat: sw.getLat(),
+            maxLat: ne.getLat(),
+            minLng: sw.getLng(),
+            maxLng: ne.getLng()
+          }
+        });
+
+        this.viewportProperties = (data || []).map(b => ({
+          id: b.aptSeq,
+          aptSeq: b.aptSeq,
+          name: b.aptName,
+          address: b.roadAddress,
+          rating: b.propertyRating,
+          buildYear: b.buildYear,
+          latitude: Number(b.latitude),
+          longitude: Number(b.longitude),
+          minDealType: b.minDealType || "",
+          minPrice: b.minPrice ?? null,
+          minDeposit: b.minDeposit ?? null,
+        }));
+      } catch (e) {
+        console.error('Viewport properties fetch failed:', e);
+      } finally {
+        this.isLoadingViewport = false;
+      }
+    },
+
+    // Debounce 헬퍼
+    debounce(func, wait) {
+      let timeout;
+      return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+      };
     },
 
     toggleLike() {
