@@ -12,41 +12,95 @@
         :zoomable="true"
         @onLoadKakaoMap="onLoadKakaoMap"
       >
+        <!-- 클러스터 마커 -->
         <KakaoMapCustomOverlay
           v-for="c in clusterMarkers"
           :key="c.key"
           :lat="c.lat"
           :lng="c.lng"
           :yAnchor="1"
+          :zIndex="hoveredKey === c.key ? 1000 : 1"
         >
           <div
-            class="count-marker"
-            :class="{ cluster: c.items.length > 1 }"
+            class="marker-container"
+            @mouseenter="hoveredKey = c.key"
+            @mouseleave="hoveredKey = null"
             @click.stop="
               c.items.length > 1
                 ? zoomIntoCluster(c)
                 : selectProperty(c.items[0], { fromMap: true })
             "
           >
-            <span class="marker-count">{{ c.count }}</span>
-            <div class="marker-glow"></div>
+            <!-- 툴팁 -->
+            <div class="marker-tooltip">
+              <div class="tooltip-content">
+                <div class="tooltip-name">{{ getMarkerName(c) }}</div>
+                <div class="tooltip-info">
+                  <span v-if="getMarkerRating(c)" class="tooltip-rating">
+                    ⭐ {{ getMarkerRating(c) }}
+                  </span>
+                  <span
+                    v-if="getMarkerRating(c) && getMarkerPrice(c)"
+                    class="tooltip-divider"
+                    >·</span
+                  >
+                  <span v-if="getMarkerPrice(c)" class="tooltip-price">
+                    {{ getMarkerPrice(c) }}
+                  </span>
+                </div>
+              </div>
+              <div class="tooltip-arrow"></div>
+            </div>
+
+            <!-- 마커 -->
+            <div class="count-marker" :class="{ cluster: c.items.length > 1 }">
+              <span class="marker-count">{{ c.count }}</span>
+              <div class="marker-glow"></div>
+            </div>
           </div>
         </KakaoMapCustomOverlay>
 
-        <!-- (선택) 클러스터 모드가 아닐 때만 개별 표시 -->
+        <!-- 개별 마커 (클러스터 모드가 아닐 때) -->
         <KakaoMapCustomOverlay
           v-for="m in !isClusterMode ? markerBuildings : []"
           :key="m.aptSeq"
           :lat="m.latitude"
           :lng="m.longitude"
           :yAnchor="1"
+          :zIndex="hoveredKey === m.aptSeq ? 10000 : 1"
         >
           <div
-            class="count-marker"
+            class="marker-container"
+            @mouseenter="hoveredKey = m.aptSeq"
+            @mouseleave="hoveredKey = null"
             @click.stop="selectProperty(m, { fromMap: true })"
           >
-            <span class="marker-count">{{ m.count }}</span>
-            <div class="marker-glow"></div>
+            <!-- 툴팁 -->
+            <div class="marker-tooltip">
+              <div class="tooltip-content">
+                <div class="tooltip-name">{{ m.name }}</div>
+                <div class="tooltip-info">
+                  <span v-if="m.rating" class="tooltip-rating">
+                    ⭐ {{ m.rating }}
+                  </span>
+                  <span
+                    v-if="m.rating && getMarkerPrice(m)"
+                    class="tooltip-divider"
+                    >·</span
+                  >
+                  <span v-if="getMarkerPrice(m)" class="tooltip-price">
+                    {{ getMarkerPrice(m) }}
+                  </span>
+                </div>
+              </div>
+              <div class="tooltip-arrow"></div>
+            </div>
+
+            <!-- 마커 -->
+            <div class="count-marker">
+              <span class="marker-count">{{ m.count }}</span>
+              <div class="marker-glow"></div>
+            </div>
           </div>
         </KakaoMapCustomOverlay>
       </KakaoMap>
@@ -68,7 +122,6 @@
     />
 
     <!-- ================== PANELS ================== -->
-    {{ console.log("selectedProperty:", selectedProperty) }}
     <PropertyDetailPanel
       v-if="selectedProperty && !showReviewPanel"
       :property="selectedProperty"
@@ -143,6 +196,7 @@ export default {
         imageHeight: 100,
         imageOption: {},
       },
+      hoveredKey: null,
     };
   },
 
@@ -183,11 +237,9 @@ export default {
   },
   async mounted() {
     await this.initByRoute();
-    // 헤더 검색 이벤트 리스너 추가
     window.addEventListener("header-search-triggered", this.handleHeaderSearch);
   },
   beforeUnmount() {
-    // 이벤트 리스너 제거
     window.removeEventListener(
       "header-search-triggered",
       this.handleHeaderSearch
@@ -208,12 +260,67 @@ export default {
     },
   },
   methods: {
+    // 마커 툴팁 정보 생성
+    getMarkerName(marker) {
+      if (marker.items && marker.items.length > 1) {
+        return `${marker.items.length}개 건물`;
+      }
+      const item = marker.items ? marker.items[0] : marker;
+      return item.name || "알 수 없음";
+    },
+
+    getMarkerRating(marker) {
+      if (marker.items && marker.items.length > 1) {
+        // 클러스터: 평균 평점 계산
+        const ratings = marker.items
+          .map((m) => Number(m.rating))
+          .filter((r) => r > 0);
+
+        if (ratings.length === 0) return null;
+
+        const avg = ratings.reduce((sum, r) => sum + r, 0) / ratings.length;
+        return avg.toFixed(1);
+      }
+
+      const item = marker.items ? marker.items[0] : marker;
+      const rating = Number(item.rating);
+      return rating > 0 ? rating.toFixed(1) : null;
+    },
+
+    getMarkerPrice(marker) {
+      if (marker.items && marker.items.length > 1) {
+        // 클러스터: 범위 표시
+        return "여러 매물";
+      }
+
+      const item = marker.items ? marker.items[0] : marker;
+      const type = item.minDealType;
+      const deposit = item.minDeposit;
+      const price = item.minPrice;
+
+      if (!type) return null;
+
+      if (type === "월세") {
+        if (deposit != null && price != null) {
+          return `월세 ${deposit}/${price}`;
+        }
+      } else if (type === "전세") {
+        if (price != null) {
+          return `전세 ${price}억`;
+        }
+      } else if (type === "매매") {
+        if (price != null) {
+          return `매매 ${price}억`;
+        }
+      }
+
+      return null;
+    },
+
     handleGoMap(payload) {
       console.log("[SearchMapPage] go-map payload:", payload);
 
       const { aptSeq, lat, lng } = payload || {};
-
-      // aptSeq가 없으면 id를 fallback으로
       const targetAptSeq = aptSeq ?? payload?.id;
 
       if (Number.isFinite(lat) && Number.isFinite(lng)) {
@@ -229,12 +336,9 @@ export default {
         if (found) this.selectProperty(found, { fromMap: false });
       }
     },
-    // ---------------------------
-    // 헤더 검색 이벤트 핸들러
-    // ---------------------------
+
     handleHeaderSearch() {
       console.log("헤더 검색 이벤트 감지됨");
-      // 검색 모드로 전환하고 검색 결과 다시 가져오기
       this.entryMode = "ALL";
       this.tabMode = "ALL";
       this.selectedProperty = null;
@@ -242,9 +346,6 @@ export default {
       this.fetchSearchResults();
     },
 
-    // ---------------------------
-    // INIT (entry 결정)
-    // ---------------------------
     async hydrateMissingFields() {
       const missing = this.properties
         .filter((p) => {
@@ -255,7 +356,6 @@ export default {
             !Number.isFinite(Number(p.latitude)) ||
             !Number.isFinite(Number(p.longitude));
 
-          // 가격 OR 좌표 중 하나라도 없으면 보강
           return noPrice || noCoord;
         })
         .map((p) => String(p.aptSeq ?? p.id));
@@ -294,17 +394,15 @@ export default {
 
         return {
           ...p,
-          // 좌표 보강
           latitude: Number(p.latitude) || Number(b.latitude),
           longitude: Number(p.longitude) || Number(b.longitude),
-
-          // 가격 보강
           minDealType: p.minDealType || b.minDealType || "",
           minDeposit: p.minDeposit ?? b.minDeposit ?? null,
           minPrice: p.minPrice ?? b.minPrice ?? null,
         };
       });
     },
+
     rebuildClusters() {
       if (!this.mapRef) return;
 
@@ -375,6 +473,7 @@ export default {
       this.mapRef.setCenter(new kakao.maps.LatLng(c.lat, c.lng));
       this.mapRef.setLevel(Math.max(1, this.level - 2));
     },
+
     async fetchListingCounts() {
       const aptSeqs = Array.from(
         new Set(this.validProperties.map((p) => String(p.aptSeq ?? p.id)))
@@ -388,7 +487,9 @@ export default {
 
         const results = await Promise.allSettled(
           chunk.map(async (aptSeq) => {
-            const { data } = await axios.get(`/property/${aptSeq}/listings`);
+            const { data } = await axios.get(
+              `${API_BASE}/property/${aptSeq}/listings`
+            );
             return { aptSeq, count: Array.isArray(data) ? data.length : 0 };
           })
         );
@@ -420,6 +521,7 @@ export default {
 
       this.moveCenterToFirst();
     },
+
     async initByRoute() {
       const mode = String(this.$route.query.mode || "all").toLowerCase();
       const open = this.$route.query.open
@@ -461,7 +563,6 @@ export default {
     },
 
     async setTabMode(next) {
-      // 찜에서 전체/추천 누르면 라우트 변경 유지
       if (this.entryMode === "FAVORITE") {
         this.$router.replace({
           path: this.$route.path,
@@ -584,8 +685,6 @@ export default {
       try {
         const raw = sessionStorage.getItem("tothezip_reco");
         const reco = raw ? JSON.parse(raw) : null;
-        // console.log("[RECO RAW]", sessionStorage.getItem("tothezip_reco"));
-        console.log("[RECO PARSED]", reco);
 
         if (!reco) {
           this.errorMessage =
@@ -596,11 +695,6 @@ export default {
         const recoRegionName = (reco.regionName || "").trim();
 
         this.filterTags = this.makeRecoTags(reco);
-
-        console.log("[RECO] properties:", this.properties.length);
-        console.log("[RECO] valid:", this.validProperties.length);
-        console.log("[RECO] markerBuildings:", this.markerBuildings.length);
-        console.log("[RECO] sample:", this.properties[0]);
 
         if (Array.isArray(reco.properties) && reco.properties.length > 0) {
           this.properties = reco.properties.map((p) => ({
@@ -645,7 +739,6 @@ export default {
             .map((r) => (Array.isArray(r.data) ? r.data[0] : r.data))
             .filter(Boolean);
 
-          // mapBuildingToCard는 regionName 안 넣어주니까 여기서 주입
           this.properties = buildings.map((b) => ({
             ...this.mapBuildingToCard(true)(b),
             regionName: recoRegionName,
@@ -739,8 +832,8 @@ export default {
             latitude: Number(b.latitude),
             longitude: Number(b.longitude),
 
-            jibun: b.jibun, // "648-3"
-            roadNm: b.roadNm || b.road_nm, // "온천북로33번길"
+            jibun: b.jibun,
+            roadNm: b.roadNm || b.road_nm,
             roadBun: b.roadBun || b.road_bun,
 
             sidoName: b.sidoName || b.sido_name || "",
@@ -927,7 +1020,93 @@ export default {
   inset: 0;
 }
 
-/* 🎨 예쁜 마커 스타일 */
+/* 마커 컨테이너 */
+.marker-container {
+  position: relative;
+  display: inline-block;
+  z-index: 1;
+}
+
+/* 호버 시 맨 위로 */
+.marker-container:hover {
+  z-index: 10000;
+}
+
+/* 툴팁 (기본 숨김) */
+.marker-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-12px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+  z-index: 9999;
+  white-space: nowrap;
+}
+
+/* 호버 시 툴팁 표시 */
+.marker-container:hover .marker-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(-8px);
+}
+
+.tooltip-content {
+  background: rgba(17, 17, 17, 0.95);
+  backdrop-filter: blur(8px);
+  border-radius: 10px;
+  padding: 10px 14px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.tooltip-name {
+  font-family: "Pretendard", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.tooltip-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: "Pretendard", sans-serif;
+  font-size: 11px;
+}
+
+.tooltip-rating {
+  color: #ffd700;
+  font-weight: 600;
+}
+
+.tooltip-divider {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.tooltip-price {
+  color: var(--tothezip-orange-03);
+  font-weight: 600;
+}
+
+.tooltip-arrow {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid rgba(17, 17, 17, 0.95);
+}
+
+/* 기존 마커 스타일 */
 .count-marker {
   position: relative;
   width: 40px;
@@ -1035,7 +1214,7 @@ export default {
   transform: translateY(-2px) scale(1.05);
 }
 
-/* 클러스터 마커 (여러 개 묶인 경우) */
+/* 클러스터 마커 */
 .count-marker.cluster {
   width: 52px;
   height: 52px;
@@ -1052,40 +1231,8 @@ export default {
   animation: pulse 2s infinite;
 }
 
-.count-marker.cluster::before {
-  background: linear-gradient(
-    45deg,
-    transparent 30%,
-    rgba(255, 255, 255, 0.4) 50%,
-    transparent 70%
-  );
-}
-
 .count-marker.cluster .marker-count {
   font-size: 18px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 0 8px rgba(255, 255, 255, 0.5);
-}
-
-.count-marker.cluster .marker-glow {
-  background: radial-gradient(
-    circle,
-    rgba(178, 34, 34, 0.5) 0%,
-    rgba(227, 93, 55, 0.3) 40%,
-    transparent 70%
-  );
-  animation: clusterGlowPulse 2s ease-in-out infinite;
-}
-
-@keyframes clusterGlowPulse {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.4;
-  }
-  50% {
-    transform: scale(1.3);
-    opacity: 0.7;
-  }
 }
 
 @keyframes pulse {
