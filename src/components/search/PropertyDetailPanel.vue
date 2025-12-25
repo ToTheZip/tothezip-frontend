@@ -130,6 +130,8 @@
                 :key="item.propertyId"
                 :listing="item"
                 @toggle-like="toggleListingLike"
+                @select="handleSelectListing"
+                @hover="(payload) => $emit('listing-hover', payload)"
               />
             </div>
           </div>
@@ -183,6 +185,77 @@
 
           <div v-else class="reviews-list">
             <ReviewItem v-for="r in reviews" :key="r.reviewId" :review="r" />
+          </div>
+        </div>
+      </div>
+
+      
+
+      <!-- ✅ 비교 매물 섹션 -->
+      <div class="section-divider">
+        <div class="section-title-row">
+          <h3 class="section-title">비교 매물</h3>
+          <button
+            v-if="selectedListingForCompare"
+            class="tiny-toggle"
+            type="button"
+            @click="clearComparisons"
+          >
+            초기화
+          </button>
+        </div>
+
+        <div v-if="compareHint" class="compare-hint">
+          {{ compareHint }}
+        </div>
+
+        <div v-if="comparisonsLoading" class="listings-placeholder">
+          <p>비교 매물 불러오는 중...</p>
+        </div>
+
+        <div v-else-if="comparisonsError" class="listings-placeholder">
+          <p>{{ comparisonsError }}</p>
+        </div>
+
+        <div
+          v-else-if="selectedListingForCompare && comparisons.length === 0"
+          class="listings-placeholder"
+        >
+          <p>비교할 매물이 없어요.</p>
+        </div>
+
+        <div
+          v-else-if="!selectedListingForCompare"
+          class="listings-placeholder"
+        >
+          <p>위 매물 중 하나를 눌러 비교 매물을 확인해보세요.</p>
+        </div>
+
+        <div v-else class="comparisons-list">
+          <div
+            v-for="c in comparisons"
+            :key="c.propertyId"
+            class="comparison-card"
+            @click="handleSelectComparison(c)"
+          >
+            <div class="comparison-top">
+              <span class="listing-type">{{ c.type }}</span>
+              <span class="comparison-score"
+                >{{ Math.round((c.score || 0) * 100) }}%</span
+              >
+            </div>
+
+            <div class="comparison-price">{{ formatListingPrice(c) }}</div>
+
+            <div class="comparison-meta">
+              <span>{{ toPyeong(c.area) }}평</span>
+              <span class="dot">·</span>
+              <span>{{ c.floor }}층</span>
+              <span class="dot">·</span>
+              <span>{{ formatMeter(c.distM) }}</span>
+            </div>
+
+            <div class="comparison-name">{{ c.aptName }}</div>
           </div>
         </div>
       </div>
@@ -241,8 +314,15 @@ export default {
     property: { type: Object, required: true },
     openContractImmediate: { type: Boolean, default: false },
   },
-  emits: ["close", "open-all-reviews", "open-reviews", "favorite-empty", "contract-panel-closed"],
-
+  emits: [
+    "close",
+    "open-all-reviews",
+    "open-reviews",
+    "favorite-empty",
+    "contract-panel-closed",
+    "select-listing",
+    "listing-hover",
+  ],
   computed: {
     allImages() {
       // DTO의 images가 있으면 그걸 우선
@@ -271,6 +351,11 @@ export default {
     remainingCount() {
       return Math.max(0, this.allImages.length - 5);
     },
+    compareHint() {
+      if (!this.selectedListingForCompare) return "";
+      if (!this.usedRadiusM) return "";
+      return `검색 반경: ${this.formatMeter(this.usedRadiusM)} (유사도 순)`;
+    },
   },
   data() {
     return {
@@ -290,9 +375,16 @@ export default {
       priceSeries: [],
       priceLoading: false,
       priceError: "",
-      priceMode: "avg", // or "avg"
+      priceMode: "avg", // "avg" | "median"
 
       contractPanelOpen: false,
+
+      // 비교 매물
+      selectedListingForCompare: null,
+      comparisons: [],
+      comparisonsLoading: false,
+      comparisonsError: "",
+      usedRadiusM: null,
     };
   },
   watch: {
@@ -302,6 +394,7 @@ export default {
         this.fetchListings();
         this.fetchReviewsPreview();
         this.fetchPriceSeries();
+        this.clearComparisons();
       },
     },
     openContractImmediate: {
@@ -535,6 +628,102 @@ export default {
       } finally {
         this.priceLoading = false;
       }
+    },
+    // 비교 매물
+    async handleSelectListing(listing) {
+      if (!listing?.propertyId) return;
+      this.$emit("select-listing", listing);
+    },
+
+    async fetchComparisons(listingId) {
+      this.comparisonsLoading = true;
+      this.comparisonsError = "";
+      this.comparisons = [];
+      this.usedRadiusM = null;
+
+      try {
+        // ✅ context-path /tothezip 포함된 API_BASE로 통일
+        const { data } = await axios.get(
+          `${API_BASE}/property/listings/${listingId}/comparisons`
+          // { params: { limit: 10 } }
+        );
+
+        // data: { base, candidates, usedRadiusM }
+        this.usedRadiusM = data?.usedRadiusM ?? null;
+        this.comparisons = Array.isArray(data?.candidates)
+          ? data.candidates
+          : [];
+      } catch (e) {
+        console.error(e);
+        this.comparisonsError = "비교 매물을 불러오지 못했어요.";
+      } finally {
+        this.comparisonsLoading = false;
+      }
+    },
+
+    clearComparisons() {
+      this.selectedListingForCompare = null;
+      this.comparisons = [];
+      this.usedRadiusM = null;
+      this.comparisonsError = "";
+      this.comparisonsLoading = false;
+    },
+
+    // 후보를 클릭하면 “그 후보 매물” 기준으로 다시 비교를 보거나,
+    // 혹은 너가 원하면 해당 매물 상세로 이동시키면 돼.
+    async handleSelectComparison(c) {
+      if (!c?.propertyId) return;
+      // 옵션 A) 그 후보 기준으로 비교 다시 불러오기
+      this.selectedListingForCompare = {
+        propertyId: c.propertyId,
+        type: c.type,
+        price: c.price,
+        deposit: c.deposit,
+        area: c.area,
+        floor: c.floor,
+      };
+      await this.fetchComparisons(c.propertyId);
+
+      // 옵션 B) 라우팅/상세 이동이 있으면 여기서 라우터 push
+      // this.$router.push({ name: 'PropertyDetail', params: { id: c.propertyId }})
+    },
+
+    // ----- formatting helpers -----
+    toPyeong(areaM2) {
+      const n = Number(areaM2);
+      if (!Number.isFinite(n)) return "-";
+      return (n / 3.305785).toFixed(1);
+    },
+
+    formatMeter(m) {
+      const n = Number(m);
+      if (!Number.isFinite(n)) return "-";
+      if (n < 1000) return `${Math.round(n)}m`;
+      return `${(n / 1000).toFixed(1)}km`;
+    },
+
+    formatMoneyManwon(v) {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return String(v ?? "-");
+      if (n >= 10000) {
+        const eok = Math.floor(n / 10000);
+        const rest = n % 10000;
+        return rest === 0 ? `${eok}억` : `${eok}억 ${rest}만`;
+      }
+      return `${n}만`;
+    },
+
+    formatListingPrice(x) {
+      const t = x?.type || "";
+      const price = x?.price;
+      const dep = x?.deposit;
+
+      if (!t || price == null) return "";
+      if (t === "월세") {
+        const d = dep != null ? this.formatMoneyManwon(dep) : "0만";
+        return `월세 ${d} / ${this.formatMoneyManwon(price)}`;
+      }
+      return `${t} ${this.formatMoneyManwon(price)}`;
     },
   },
 };
@@ -881,5 +1070,72 @@ export default {
 .small-verify-btn:hover {
   background: var(--tothezip-orange-02);
   transform: translateY(-1px);
+}
+
+/* 매물 비교 */
+.comparisons-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.comparison-card {
+  border: 1px solid var(--tothezip-brown-01);
+  border-radius: 12px;
+  padding: 10px;
+  background: #fff;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.comparison-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+}
+
+.comparison-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.comparison-score {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--tothezip-orange-06);
+  border: 1px solid rgba(240, 138, 60, 0.35);
+  background: rgba(255, 237, 219, 0.7);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.comparison-price {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #000;
+}
+
+.comparison-meta {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--tothezip-gray-04);
+}
+
+.comparison-name {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tothezip-brown-07);
+}
+
+.compare-hint {
+  margin: 6px 0 10px;
+  font-size: 11px;
+  color: var(--tothezip-gray-04);
 }
 </style>

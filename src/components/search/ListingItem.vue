@@ -1,5 +1,11 @@
 <template>
-  <div class="listing-item">
+  <div
+    class="listing-item"
+    @click="onSelect"
+    @mouseenter="onEnter"
+    @mousemove="onMove"
+    @mouseleave="onLeave"
+  >
     <div class="listing-top">
       <span class="listing-type">{{ listing.type }}</span>
       <div class="listing-right">
@@ -41,7 +47,7 @@ export default {
       required: true,
     },
   },
-  emits: ["toggle-like"],
+  emits: ["toggle-like", "select", "hover"],
   computed: {
     pyeong() {
       const n = Number(this.listing.area);
@@ -77,6 +83,22 @@ export default {
       }
       return `${n}만원`;
     },
+    onSelect() {
+      // console.log("[ListingItem] clicked", this.listing?.propertyId);
+      this.$emit("select", this.listing);
+    },
+    onEnter(e) {
+      // console.log("[hover enter]", e.clientX, e.clientY);
+      this.$emit("hover", { show: true, x: e.clientX, y: e.clientY });
+    },
+    onMove(e) {
+      // console.log("[hover move]", e.clientX, e.clientY);
+      this.$emit("hover", { show: true, x: e.clientX, y: e.clientY });
+    },
+    onLeave() {
+      // console.log("[hover leave]");
+      this.$emit("hover", { show: false });
+    },
   },
 };
 </script>
@@ -87,6 +109,12 @@ export default {
   border-radius: 12px;
   padding: 10px;
   background: #fff;
+  cursor: pointer;
+}
+
+.listing-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
 }
 
 .listing-top {

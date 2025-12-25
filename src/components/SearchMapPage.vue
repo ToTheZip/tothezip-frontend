@@ -131,6 +131,28 @@
       @favorite-empty="removeFavoriteBuilding"
       @open-reviews="openReviewsPanel"
       @contract-panel-closed="shouldOpenContract = false"
+      @select-listing="openListingCompare"
+      @listing-hover="handleListingHover"
+    />
+
+    <!-- <PropertyDetailPanel
+      v-if="selectedProperty && !showReviewPanel"
+      :property="selectedProperty"
+      @close="closeDetailPanel"
+      @toggle-like="toggleLike"
+      @open-reviews="openReviewsPanel"
+    /> -->
+    <ListingComparePanel
+      v-if="
+        selectedProperty && !showReviewPanel && panelMode === 'LISTING_COMPARE'
+      "
+      :base-property="selectedProperty"
+      :listing="selectedListing"
+      :compare-result="compareResult"
+      :loading="compareLoading"
+      :error="compareError"
+      @back="backToBuildingPanel"
+      @select-property="selectComparedProperty"
     />
 
     <ReviewListPanel
@@ -140,6 +162,8 @@
       @close="closeReviewsPanel"
       @open-contract-panel="handleOpenContractPanel"
     />
+
+    <CursorTooltip :show="tooltip.show" :x="tooltip.x" :y="tooltip.y" />
   </div>
 </template>
 
@@ -156,6 +180,8 @@ import PropertyDetailPanel from "@/components/search/PropertyDetailPanel.vue";
 import ReviewListPanel from "@/components/search/ReviewListPanel.vue";
 import loginDozip from "@/assets/images/login_dozip.png";
 import { useAuthStore } from "@/stores/auth";
+import CursorTooltip from "@/components/common/CursorTooltip.vue";
+import ListingComparePanel from "@/components/search/ListingComparePanel.vue";
 
 const API_BASE = import.meta.env.VITE_API_BASE;
 
@@ -167,6 +193,8 @@ export default {
     SearchSidebar,
     PropertyDetailPanel,
     ReviewListPanel,
+    CursorTooltip,
+    ListingComparePanel,
   },
   data() {
     return {
@@ -202,6 +230,12 @@ export default {
       },
       hoveredKey: null,
       shouldOpenContract: false,
+      panelMode: "BUILDING", // BUILDING | LISTING_COMPARE
+      selectedListing: null,
+      compareResult: null,
+      compareLoading: false,
+      compareError: "",
+      tooltip: { show: false, x: 0, y: 0, text: "클릭하여 비교 매물 보기" },
     };
   },
   computed: {
@@ -1065,8 +1099,50 @@ export default {
       this.showReviewPanel = false;
       this.reviewTarget = null;
     },
+    handleListingHover(payload) {
+      // payload: {show, x, y}
+      // console.log("[listing-hover to page]", payload);
+      this.tooltip = { ...this.tooltip, ...payload };
+    },
+
+    async openListingCompare(listing) {
+      this.selectedListing = listing;
+      this.panelMode = "LISTING_COMPARE";
+      this.tooltip.show = false;
+
+      this.compareLoading = true;
+      this.compareError = "";
+      this.compareResult = null;
+
+      try {
+        const { data } = await axios.get(
+          `${API_BASE}/property/listings/${listing.propertyId}/comparisons`
+          // { params: { limit: 10 } }
+        );
+        // data: { base, candidates, usedRadiusM, aiEnabled, ... }
+        this.compareResult = data;
+      } catch (e) {
+        console.error(e);
+        this.compareError = "비교 매물을 불러오지 못했어요.";
+      } finally {
+        this.compareLoading = false;
+      }
+    },
+
+    backToBuildingPanel() {
+      this.panelMode = "BUILDING";
+      this.selectedListing = null;
+      this.compareResult = null;
+      this.compareError = "";
+      this.compareLoading = false;
+    },
+
     closeDetailPanel() {
+      this.panelMode = "BUILDING";
       this.selectedProperty = null;
+      this.selectedListing = null;
+      this.compareResult = null;
+      this.tooltip.show = false;
       this.showReviewPanel = false;
     },
     selectProperty(property, { fromMap = false } = {}) {
@@ -1074,12 +1150,89 @@ export default {
       this.selectedAptSeq = property?.aptSeq ?? null;
       this.showReviewPanel = false;
 
+      // 건물 바꾸면 패널도 BUILDING으로 초기화
+      this.panelMode = "BUILDING";
+      this.selectedListing = null;
+      this.compareResult = null;
+      this.tooltip.show = false;
+
       if (property?.latitude && property?.longitude) {
         this.center = { lat: property.latitude, lng: property.longitude };
       }
 
       if (this.$refs.sidebarRef && this.selectedAptSeq) {
         this.$refs.sidebarRef.scrollToCard(this.selectedAptSeq);
+      }
+    },
+
+    async selectComparedProperty(payload) {
+      try {
+        const aptSeq = payload?.aptSeq ? String(payload.aptSeq) : null;
+        if (!aptSeq) return;
+
+        // 1) 지도 이동 (가능하면 mapRef로 직접)
+        const lat = Number(payload.latitude);
+        const lng = Number(payload.longitude);
+
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          this.center = { lat, lng };
+
+          // (선택) KakaoMap이 props 변경을 늦게 반영하면 아래도 같이
+          if (this.mapRef?.setCenter) {
+            // kakao.maps.LatLng는 전역 kakao가 있어야 함
+            // eslint-disable-next-line no-undef
+            this.mapRef.setCenter(new kakao.maps.LatLng(lat, lng));
+          }
+        }
+
+        // 2) 현재 검색 결과(properties)에서 먼저 찾기
+        let found = this.properties.find((p) => String(p.aptSeq) === aptSeq);
+
+        // 3) 없으면 서버에서 aptSeq로 1건 조회해서 패널용 building 카드 만들기
+        if (!found) {
+          const { data } = await axios.post(`${API_BASE}/property/search`, {
+            aptSeq,
+            limit: 1,
+            offset: 0,
+          });
+
+          const b = Array.isArray(data) ? data[0] : data;
+          if (!b) {
+            alert("해당 건물 정보를 불러오지 못했어요.");
+            return;
+          }
+
+          // SearchMapPage에서 쓰는 카드 형태로 매핑
+          const allImages = Array.isArray(b.images)
+            ? b.images.filter(Boolean)
+            : [];
+          const main = b.imageUrl || allImages[0] || "";
+
+          found = {
+            id: b.aptSeq,
+            aptSeq: b.aptSeq,
+            name: b.aptName,
+            address: b.roadAddress,
+            rating: b.propertyRating,
+            tags: b.tags || [],
+            buildYear: b.buildYear,
+            isLiked: false,
+            image: main,
+            images: allImages.length ? allImages : main ? [main] : [],
+            latitude: Number(b.latitude),
+            longitude: Number(b.longitude),
+          };
+
+          // (선택) 마커/사이드바에도 보이게 하고 싶으면 목록에 추가
+          // this.properties = [found, ...this.properties];
+          this.properties = [...this.properties, found];
+        }
+
+        // 4) 건물 상세 패널로 전환 (selectProperty가 panelMode BUILDING으로 초기화함)
+        this.selectProperty(found);
+      } catch (e) {
+        console.error("비교 매물 선택 오류:", e);
+        alert("건물 이동 중 오류가 발생했어요.");
       }
     },
 
