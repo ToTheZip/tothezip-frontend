@@ -102,12 +102,12 @@ export default {
   gap: 10px;
 }
 
-/* ✅ 추천 매물 섹션과 톤 맞춤: 18/600 */
+/* ✅ 추천 매물 섹션과 톤 맞춤 */
 .section-title {
   font-family: "Pretendard", sans-serif;
-  font-weight: 600;
-  font-size: 18px;
-  color: #111;
+  font-weight: 700;
+  font-size: 20px;
+  color: black;
 }
 
 .highlight {

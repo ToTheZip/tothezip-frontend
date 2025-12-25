@@ -1,5 +1,11 @@
 <template>
-  <nav class="navbar">
+  <nav
+    class="navbar"
+    :class="{
+      'home-transparent': isHomePage && !isPageScrolled,
+      'home-scrolled': isHomePage && isPageScrolled,
+    }"
+  >
     <div class="navbar-inner" @click="handleNavbarClick">
       <!-- LEFT: 로고 영역 -->
       <div class="nav-left">
@@ -13,7 +19,21 @@
       </div>
 
       <!-- CENTER: 검색바 영역 -->
-      <div class="nav-center" @click.stop>
+      <div
+        class="nav-center"
+        :class="{ hidden: isHomePage && !isPageScrolled }"
+        :style="
+          isHomePage
+            ? {
+                opacity: scrollProgress,
+                transform: `translateX(-50%) scale(${
+                  0.7 + scrollProgress * 0.3
+                })`,
+              }
+            : {}
+        "
+        @click.stop
+      >
         <div
           class="search-bar"
           :class="{ expanded: isSearchExpanded }"
@@ -316,6 +336,10 @@ export default {
   name: "Header",
   data() {
     return {
+      // 스크롤 상태
+      isPageScrolled: false,
+      scrollProgress: 0,
+
       // 검색바 확장 상태
       isSearchExpanded: false,
       activeSearchPanel: null,
@@ -359,6 +383,9 @@ export default {
     };
   },
   computed: {
+    isHomePage() {
+      return this.$route.path === "/";
+    },
     ui() {
       return useUIStore();
     },
@@ -427,12 +454,29 @@ export default {
     FavoriteMiniCalendar, // 추가
   },
   mounted() {
+    window.addEventListener("scroll", this.handlePageScroll);
     document.addEventListener("click", this.handleClickOutside);
   },
   beforeUnmount() {
+    window.removeEventListener("scroll", this.handlePageScroll);
     document.removeEventListener("click", this.handleClickOutside);
   },
   methods: {
+    handlePageScroll() {
+      const scrollTop =
+        window.pageYOffset || document.documentElement.scrollTop;
+      // 홈 페이지에서 스크롤 진행도 계산
+      if (this.isHomePage) {
+        const maxScroll = 300;
+        this.scrollProgress = Math.min(scrollTop / maxScroll, 1);
+        // 200px 이상 스크롤 시 검색바 표시 (좌 더 빨리 표시)
+        this.isPageScrolled = scrollTop > 200;
+      } else {
+        this.scrollProgress = 0;
+        this.isPageScrolled = false;
+      }
+    },
+
     handleClickOutside(event) {
       const ui = useUIStore();
       if (!ui.showProfileMenu) return;
@@ -440,7 +484,7 @@ export default {
       const profilePanel = this.$refs.profilePanelRef;
       // 프로필 버튼이나 패널 내부 클릭은 무시
       if (
-        event.target.closest(".profile-button") || 
+        event.target.closest(".profile-button") ||
         (profilePanel && profilePanel.$el.contains(event.target))
       ) {
         return;
@@ -673,6 +717,18 @@ export default {
   top: 0;
   left: 0;
   z-index: 20000;
+  transition: all 0.3s ease;
+}
+
+.navbar.home-transparent {
+  background: #fff4ed;
+  border-bottom: none;
+}
+
+.navbar.home-scrolled {
+  background-color: #fff;
+  border-bottom: 1px solid #dcd4cf;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .navbar-inner {
@@ -702,6 +758,8 @@ export default {
   display: flex;
   justify-content: center;
   pointer-events: none;
+  transform-origin: center;
+  will-change: transform, opacity;
 }
 
 .nav-center .search-bar {
@@ -710,6 +768,17 @@ export default {
 
 .nav-center .panel-container {
   pointer-events: auto;
+}
+
+.nav-center.hidden {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.nav-center.hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* 검색바 */

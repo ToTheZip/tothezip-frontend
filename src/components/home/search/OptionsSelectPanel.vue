@@ -452,14 +452,21 @@ export default {
   },
   data() {
     return {
-      localOptions: { ...this.options },
+      localOptions: JSON.parse(JSON.stringify(this.options)),
     };
   },
   watch: {
     options: {
       deep: true,
       handler(newVal) {
-        this.localOptions = { ...newVal };
+        this.localOptions = JSON.parse(JSON.stringify(newVal));
+      },
+    },
+    localOptions: {
+      deep: true,
+      handler(newVal) {
+        // 옵션이 변경될 때마다 자동으로 적용
+        this.$emit("apply", JSON.parse(JSON.stringify(newVal)));
       },
     },
     "localOptions.areaMin"(v) {
@@ -533,7 +540,7 @@ export default {
         nearSchool: false,
         nearHospital: false,
         nearCulture: false,
-        dealType: [],
+        dealType: ["월세", "전세", "매매"],
         depositMin: 0,
         depositMax: 100000,
         monthlyRentMin: 0,

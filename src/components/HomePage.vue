@@ -1,7 +1,7 @@
 <template>
-  <div class="home-page">
+  <div class="home-page" @scroll="handleScroll" ref="homeContainer">
     <!-- HERO: 배너 배경이 nav까지 포함 -->
-    <div class="hero">
+    <div class="hero" :class="{ scrolled: isScrolled }">
       <!-- Navigation Bar (hero 안으로 이동)
       <div class="navbar">
         <div class="navbar-inner">
@@ -22,14 +22,30 @@
 
       <!-- Banner Area -->
       <div class="banner-area">
-        <p class="banner-text">
-          여기 배너 영역 근데 이미지 넣을지 그냥 연한 색상으로 냅둘지 고민중
-        </p>
+        <img src="@/assets/images/house.png" alt="House" class="banner-house" />
+        <img
+          src="@/assets/images/grass.png"
+          alt="Grass"
+          class="banner-grass banner-grass-left"
+        />
+        <img
+          src="@/assets/images/grass.png"
+          alt="Grass"
+          class="banner-grass banner-grass-right"
+        />
       </div>
 
       <!-- Search Overlap -->
-      <div class="search-overlap">
-        <SearchBar @search="goSearch" />
+      <div
+        class="search-overlap"
+        :style="{
+          transform: `translateX(-50%) translateY(${
+            -scrollProgress * 120
+          }px) scale(${1 - scrollProgress * 0.4})`,
+          opacity: 1 - scrollProgress * 0.8,
+        }"
+      >
+        <SearchBar @search="goSearch" :scrollProgress="scrollProgress" />
       </div>
     </div>
 
@@ -95,6 +111,10 @@ export default {
   },
   data() {
     return {
+      // 스크롤 상태
+      isScrolled: false,
+      scrollProgress: 0, // 0 ~ 1 사이의 값
+
       // 추천 섹션
       regionName: "",
       propertyTags: [],
@@ -115,9 +135,26 @@ export default {
   async mounted() {
     // 홈 진입 시: 추천 + 뉴스 같이 로드
     await Promise.all([this.loadRecommendations(), this.loadHomeNews("ALL")]);
+
+    // 스크롤 이벤트 리스너 추가
+    window.addEventListener("scroll", this.handleScroll);
+  },
+
+  beforeUnmount() {
+    // 컴포넌트 언마운트 시 리스너 제거
+    window.removeEventListener("scroll", this.handleScroll);
   },
 
   methods: {
+    handleScroll() {
+      const scrollTop =
+        window.pageYOffset || document.documentElement.scrollTop;
+      // 300px까지 스크롤을 기준으로 0 ~ 1 사이의 값 계산
+      const maxScroll = 300;
+      this.scrollProgress = Math.min(scrollTop / maxScroll, 1);
+      this.isScrolled = scrollTop > 300;
+    },
+
     goRecoMap(aptSeq) {
       // ✅ SearchMapPage가 바로 쓰도록 reco payload 저장
       const payload = {
@@ -339,7 +376,9 @@ export default {
 .hero {
   position: relative;
   width: 100%;
-  background: var(--tothezip-beige-01);
+  background: linear-gradient(180deg, #fff4ed 0%, #fff4ed 100%);
+  padding-top: 80px; /* 헤더 높이만큼 */
+  transition: all 0.3s ease;
 }
 
 /* Navigation Bar (배경은 hero가 담당) */
@@ -390,11 +429,50 @@ export default {
 /* Banner Area (배경색은 hero가 담당) */
 .banner-area {
   width: 100%;
-  height: 190px;
+  height: 100px;
   background: transparent;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
+  position: relative;
+  overflow: visible;
+}
+
+.banner-house {
+  position: absolute;
+  bottom: 5px;
+  left: 35%;
+  transform: translateX(-50%);
+  height: 160px;
+  width: auto;
+  z-index: 200;
+}
+
+.banner-grass {
+  position: absolute;
+  bottom: 18px;
+  height: 70px;
+  width: auto;
+  z-index: 190;
+}
+
+.banner-grass-left {
+  left: 31.2%;
+}
+
+.banner-grass-right {
+  right: 61.5%;
+  transform: scaleX(-1);
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(0);
+  }
+  50% {
+    transform: translateX(-50%) translateY(-10px);
+  }
 }
 
 .banner-text {
@@ -411,12 +489,13 @@ export default {
 .search-overlap {
   position: absolute;
   left: 50%;
-  bottom: -40px;
-  transform: translateX(-50%);
+  bottom: -30px;
   width: 100%;
   display: flex;
   justify-content: center;
   z-index: 200;
+  transition: none; /* 스크롤에 따라 동적으로 변경되므로 transition 제거 */
+  will-change: transform, opacity;
 }
 
 /* Main Content */

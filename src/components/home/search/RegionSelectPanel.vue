@@ -145,18 +145,21 @@ export default {
       this.gugunList = [];
       this.dongList = [];
       await this.fetchGuguns(sido);
+      this.autoApply();
     },
     async selectGugun(gugun) {
       this.localSelectedGugun = gugun;
       this.localSelectedDong = "";
       this.dongList = [];
       await this.fetchDongs(this.localSelectedSido, gugun);
+      this.autoApply();
     },
     selectDong(dongName) {
       this.localSelectedDong = dongName;
+      this.autoApply();
     },
 
-    apply() {
+    autoApply() {
       let location = "";
       if (this.localSelectedSido) location += this.localSelectedSido;
       if (this.localSelectedGugun) location += " " + this.localSelectedGugun;
@@ -168,6 +171,10 @@ export default {
         dong: this.localSelectedDong,
         location: location.trim(),
       });
+    },
+
+    apply() {
+      this.autoApply();
     },
     reset() {
       this.localSelectedSido = "";

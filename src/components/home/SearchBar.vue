@@ -10,8 +10,13 @@
           :class="{ active: activePanel === 'region' }"
           @click="togglePanel('region')"
         >
-          <div class="field-title">지역</div>
-          <div class="field-search">
+          <div
+            class="field-title"
+            :class="{ 'title-active': activePanel === 'region' }"
+          >
+            지역
+          </div>
+          <div class="field-search" v-show="activePanel !== 'region'">
             <div v-if="selectedLocation" class="selected-text">
               {{ selectedLocation }}
             </div>
@@ -32,8 +37,13 @@
           :class="{ active: activePanel === 'options' }"
           @click="togglePanel('options')"
         >
-          <div class="field-title">옵션</div>
-          <div class="field-search">
+          <div
+            class="field-title"
+            :class="{ 'title-active': activePanel === 'options' }"
+          >
+            옵션
+          </div>
+          <div class="field-search" v-show="activePanel !== 'options'">
             <div v-if="selectedOptions.length > 0" class="options-tags">
               <span
                 v-for="(tag, index) in visibleOptionTags"
@@ -63,8 +73,13 @@
           :class="{ active: activePanel === 'property' }"
           @click="togglePanel('property')"
         >
-          <div class="field-title">매물명</div>
-          <div class="field-search">
+          <div
+            class="field-title"
+            :class="{ 'title-active': activePanel === 'property' }"
+          >
+            매물명
+          </div>
+          <div class="field-search" v-show="activePanel !== 'property'">
             <div v-if="selectedProperty" class="selected-text">
               {{ selectedProperty.aptName }}
             </div>
@@ -75,23 +90,24 @@
         <button @click="handleSearch" class="search-button" aria-label="search">
           <svg
             class="search-icon"
-            width="30"
-            height="30"
-            viewBox="0 0 30 30"
+            width="32"
+            height="32"
+            viewBox="0 0 24 24"
             fill="none"
+            xmlns="http://www.w3.org/2000/svg"
           >
             <circle
-              cx="13"
-              cy="13"
-              r="8"
+              cx="11"
+              cy="11"
+              r="7"
               stroke="white"
-              stroke-width="2"
-              fill="none"
+              stroke-width="2.5"
+              stroke-linecap="round"
             />
             <path
-              d="M18 18L22 22"
+              d="M16 16L21 21"
               stroke="white"
-              stroke-width="2"
+              stroke-width="2.5"
               stroke-linecap="round"
             />
           </svg>
@@ -167,7 +183,7 @@ export default {
         nearSchool: false,
         nearHospital: false,
         nearCulture: false,
-        dealType: [],
+        dealType: ["월세", "전세", "매매"],
         depositMin: 0,
         depositMax: 100000,
         monthlyRentMin: 0,
@@ -194,14 +210,33 @@ export default {
   },
   computed: {
     visibleOptionTags() {
-      // 옵션 칸에 표시할 수 있는 태그 수 제한 (약 2-3개)
-      return this.selectedOptions.slice(0, 3);
+      // 첫 번째 태그가 긴 경우 (10자 이상) 1개만, 아니면 2개 표시
+      if (this.selectedOptions.length > 0) {
+        const firstTagLength = this.selectedOptions[0].length;
+        const maxVisible = firstTagLength >= 10 ? 1 : 2;
+        return this.selectedOptions.slice(0, maxVisible);
+      }
+      return [];
     },
     hiddenOptionsCount() {
-      return Math.max(0, this.selectedOptions.length - 3);
+      const visible = this.visibleOptionTags.length;
+      return Math.max(0, this.selectedOptions.length - visible);
     },
   },
+  mounted() {
+    document.addEventListener("click", this.handleClickOutside);
+  },
+  beforeUnmount() {
+    document.removeEventListener("click", this.handleClickOutside);
+  },
   methods: {
+    handleClickOutside(event) {
+      // 검색바 컨테이너 외부를 클릭했는지 확인
+      const searchArea = this.$el;
+      if (searchArea && !searchArea.contains(event.target)) {
+        this.closePanel();
+      }
+    },
     togglePanel(panel) {
       if (this.activePanel === panel) {
         this.activePanel = null;
@@ -228,7 +263,10 @@ export default {
       this.selectedGugun = gugun;
       this.selectedDong = dong;
       this.selectedLocation = location;
-      this.closePanel();
+      // 동까지 선택했으면 패널 닫기
+      if (dong) {
+        this.closePanel();
+      }
     },
     resetLocation() {
       this.selectedSido = "";
@@ -246,61 +284,80 @@ export default {
       if (options.nearSchool) optionTags.push("학세권");
       if (options.nearHospital) optionTags.push("병세권");
       if (options.nearCulture) optionTags.push("문세권");
-      if (options.dealType && options.dealType.length > 0) {
-        optionTags.push(...options.dealType);
-      }
 
       // 거래 유형별 가격 정보 표시
-      if (options.dealType.includes("월세")) {
-        if (options.depositMin || options.depositMax) {
-          optionTags.push(
-            `보증금 ${options.depositMin || 0}~${options.depositMax || "∞"}만원`
-          );
-        }
-        if (options.monthlyRentMin || options.monthlyRentMax) {
-          optionTags.push(
-            `월세 ${options.monthlyRentMin || 0}~${
-              options.monthlyRentMax || "∞"
-            }만원`
-          );
-        }
-      }
-      if (options.dealType.includes("전세")) {
-        if (options.jeonseMin || options.jeonseMax) {
-          optionTags.push(
-            `전세 ${options.jeonseMin || 0}~${options.jeonseMax || "∞"}만원`
-          );
-        }
-      }
-      if (options.dealType.includes("매매")) {
-        if (options.buyMin || options.buyMax) {
-          optionTags.push(
-            `매매 ${options.buyMin || 0}~${options.buyMax || "∞"}억원`
-          );
-        }
+      // 가격 범위가 설정되어 있으면 가격 범위만, 없으면 거래 유형만 표시
+      if (options.dealType && options.dealType.length > 0) {
+        options.dealType.forEach((type) => {
+          if (type === "월세") {
+            const hasDepositRange =
+              options.depositMin !== 0 || options.depositMax !== 100000;
+            const hasMonthlyRange =
+              options.monthlyRentMin !== 0 || options.monthlyRentMax !== 500;
+
+            if (hasDepositRange || hasMonthlyRange) {
+              if (hasDepositRange) {
+                optionTags.push(
+                  `보증금 ${options.depositMin || 0}~${
+                    options.depositMax || "∞"
+                  }만원`
+                );
+              }
+              if (hasMonthlyRange) {
+                optionTags.push(
+                  `월세 ${options.monthlyRentMin || 0}~${
+                    options.monthlyRentMax || "∞"
+                  }만원`
+                );
+              }
+            } else {
+              optionTags.push("월세");
+            }
+          } else if (type === "전세") {
+            const hasRange =
+              options.jeonseMin !== 0 || options.jeonseMax !== 100000;
+            if (hasRange) {
+              optionTags.push(
+                `전세 ${options.jeonseMin || 0}~${options.jeonseMax || "∞"}만원`
+              );
+            } else {
+              optionTags.push("전세");
+            }
+          } else if (type === "매매") {
+            const hasRange = options.buyMin !== 0 || options.buyMax !== 50;
+            if (hasRange) {
+              optionTags.push(
+                `매매 ${options.buyMin || 0}~${options.buyMax || "∞"}억원`
+              );
+            } else {
+              optionTags.push("매매");
+            }
+          }
+        });
       }
 
-      if (options.areaMin || options.areaMax) {
+      // 매물 정보 (기본값이 아닌 경우만)
+      if (options.areaMin !== 1 || options.areaMax !== 100) {
         optionTags.push(`${options.areaMin || 0}~${options.areaMax || "∞"}평`);
       }
-      if (options.floorMin || options.floorMax) {
+      if (options.floorMin !== 1 || options.floorMax !== 100) {
         optionTags.push(
           `${options.floorMin || 0}~${options.floorMax || "∞"}층`
         );
       }
-      if (options.buildYearMin || options.buildYearMax) {
+      if (options.buildYearMin !== 1960 || options.buildYearMax !== 2025) {
         optionTags.push(
           `${options.buildYearMin || 0}~${options.buildYearMax || "현재"}년`
         );
       }
-      if (options.ratingMin || options.ratingMax) {
+      if (options.ratingMin !== 0 || options.ratingMax !== 5) {
         optionTags.push(
           `평점 ${options.ratingMin || 0}~${options.ratingMax || 5}`
         );
       }
 
       this.selectedOptions = optionTags;
-      this.closePanel();
+      // 자동 적용되므로 패널을 닫지 않음
     },
     resetOptions() {
       this.optionsData = {
@@ -308,7 +365,7 @@ export default {
         nearSchool: false,
         nearHospital: false,
         nearCulture: false,
-        dealType: [],
+        dealType: ["월세", "전세", "매매"],
         depositMin: 0,
         depositMax: 100000,
         monthlyRentMin: 0,
@@ -430,6 +487,8 @@ export default {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   padding: 8px 28px 11px 28px;
   margin: 0 -16px;
+  justify-content: center;
+  align-items: center;
 }
 
 /* 지역 칸이 active일 때 검색바 왼쪽 끝까지 확장 */
@@ -440,8 +499,10 @@ export default {
 
 /* 매물명 칸이 active일 때 검색바 오른쪽 끝(검색 버튼 포함)까지 확장 */
 .area-3.active {
-  padding-right: 100px;
-  margin-right: -100px;
+  padding-right: 28px;
+  margin-right: -16px;
+  padding-left: 28px;
+  margin-left: -16px;
 }
 
 .area-1 {
@@ -464,6 +525,19 @@ export default {
   font-weight: 600;
   font-size: 14px;
   color: var(--tothezip-brown-08);
+  transition: all 0.2s ease;
+}
+
+.field-title.title-active {
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  margin-bottom: 0;
+  text-align: center;
 }
 
 .field-search {
@@ -509,6 +583,9 @@ export default {
   font-weight: 500;
   white-space: nowrap;
   flex-shrink: 0;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .more-options {
