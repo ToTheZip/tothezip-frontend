@@ -68,6 +68,7 @@
     />
 
     <!-- ================== PANELS ================== -->
+    {{ console.log("selectedProperty:", selectedProperty) }}
     <PropertyDetailPanel
       v-if="selectedProperty && !showReviewPanel"
       :property="selectedProperty"

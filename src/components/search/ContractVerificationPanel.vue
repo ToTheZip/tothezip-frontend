@@ -254,6 +254,10 @@ export default {
   watch: {
     isOpen(open) {
       if (open) {
+        console.log("=== PANEL OPENED ===");
+        console.log("received property:", this.property);
+        console.log("aptSeq:", this.property?.aptSeq);
+        console.log("id:", this.property?.id);
         this.ensurePropertyDetail();
         return;
       }
@@ -449,12 +453,70 @@ export default {
     // },
 
     // 최종: OCR 호출 + 주소 비교
+    // async submit() {
+    //   if (!this.canSubmit) return;
+
+    //   try {
+    //     this.submitting = true;
+
+    //     const fd = new FormData();
+    //     fd.append("files", this.file);
+
+    //     const base = (OCR_BASE || "").replace(/\/$/, "");
+    //     const { data } = await axios.post(`${base}/extract?llm=0`, fd);
+    //     this.ocrResult = data;
+
+    //     const extractedAddr = data?.extracted?.address_raw || "";
+    //     const expectedAddr = this.fullAddress || "";
+
+    //     const ok = this.isAddressMatchWithCandidates(extractedAddr);
+
+    //     if (ok) {
+    //       const auth = useAuthStore();
+    //       const token = auth.accessToken
+    //         ? auth.accessToken.startsWith("Bearer ")
+    //           ? auth.accessToken
+    //           : `Bearer ${auth.accessToken}`
+    //         : null;
+    //       const aptSeq = this.property?.aptSeq ?? this.property?.id;
+    //       await axios.post(
+    //         `${API_BASE}/user/certification`,
+    //         {
+    //           aptSeq: String(this.property?.aptSeq ?? this.property?.id ?? ""),
+    //         },
+    //         {
+    //           headers: { Authorization: token },
+    //           withCredentials: true,
+    //         }
+    //       );
+    //       console.log(aptSeq);
+    //       //   alert("✅ 주소 일치!\n인증 완료 + 내 매물에 저장했어요.");
+    //       this.$emit("close");
+    //       return;
+    //     }
+    //     alert(
+    //       `${
+    //         ok ? "✅ 주소 일치!" : "❌ 주소 불일치"
+    //       }\n\n[화면]\n${expectedAddr}\n\n[계약서(OCR)]\n${
+    //         extractedAddr || "-"
+    //       }`
+    //     );
+    //   } catch (e) {
+    //     console.error("[OCR ERROR]", e);
+    //     alert("OCR 요청 실패 (OCR 서버 실행/주소/CORS 확인)");
+    //   } finally {
+    //     this.submitting = false;
+    //   }
+    // },
+    // submit 메서드를 다음과 같이 수정하세요:
+
     async submit() {
       if (!this.canSubmit) return;
 
       try {
         this.submitting = true;
 
+        // 1) OCR 요청
         const fd = new FormData();
         fd.append("files", this.file);
 
@@ -467,39 +529,63 @@ export default {
 
         const ok = this.isAddressMatchWithCandidates(extractedAddr);
 
-        if (ok) {
-          const auth = useAuthStore();
-          const token = auth.accessToken
-            ? auth.accessToken.startsWith("Bearer ")
-              ? auth.accessToken
-              : `Bearer ${auth.accessToken}`
-            : null;
-          const aptSeq = this.property?.aptSeq ?? this.property?.id;
-          await axios.post(
-            `${API_BASE}/user/certification`,
-            {
-              aptSeq: String(this.property?.aptSeq ?? this.property?.id ?? ""),
-            },
-            {
-              headers: { Authorization: token },
-              withCredentials: true,
-            }
-          );
-          console.log(aptSeq);
-          //   alert("✅ 주소 일치!\n인증 완료 + 내 매물에 저장했어요.");
-          this.$emit("close");
+        // 2) aptSeq 추출
+        const p = this.detailProperty || this.property || {};
+        const aptSeq = String(p.aptSeq ?? p.id ?? "");
+
+        if (!aptSeq) {
+          alert("❌ 매물 정보가 없습니다.");
           return;
         }
-        alert(
-          `${
-            ok ? "✅ 주소 일치!" : "❌ 주소 불일치"
-          }\n\n[화면]\n${expectedAddr}\n\n[계약서(OCR)]\n${
-            extractedAddr || "-"
-          }`
+
+        // 3) 인증 API 호출
+        const auth = useAuthStore();
+        const token = auth.accessToken;
+
+        if (!token) {
+          alert("로그인이 필요합니다.");
+          return;
+        }
+
+        const authHeader = token.startsWith("Bearer ")
+          ? token
+          : `Bearer ${token}`;
+
+        console.log("=== REQUEST START ===");
+        console.log("URL:", `${API_BASE}/user/certification`);
+        console.log("aptSeq:", aptSeq);
+        console.log("Has token:", !!token);
+
+        const response = await axios.post(
+          `${API_BASE}/user/certification`,
+          { aptSeq },
+          {
+            headers: {
+              Authorization: authHeader,
+              "Content-Type": "application/json",
+            },
+            withCredentials: true,
+          }
         );
+
+        console.log("✅ SUCCESS:", response.data);
+        alert(`✅ 인증이 완료되었습니다!\n\n매물: ${aptSeq}`);
+        this.$emit("close");
       } catch (e) {
-        console.error("[OCR ERROR]", e);
-        alert("OCR 요청 실패 (OCR 서버 실행/주소/CORS 확인)");
+        console.error("=== ERROR ===");
+        console.error("Status:", e.response?.status);
+        console.error("Data:", e.response?.data);
+        console.error("Full error:", e);
+
+        if (e.response?.status === 403) {
+          alert("❌ 403 Forbidden\n\n권한이 없습니다.");
+        } else if (e.response?.status === 401) {
+          alert("❌ 401 Unauthorized\n\n로그인이 필요합니다.");
+        } else if (e.response?.status === 404) {
+          alert("❌ 404 Not Found\n\nAPI 엔드포인트를 찾을 수 없습니다.");
+        } else {
+          alert(`❌ 에러 발생: ${e.message}`);
+        }
       } finally {
         this.submitting = false;
       }
