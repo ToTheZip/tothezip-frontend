@@ -306,6 +306,10 @@ export default {
         계약서 인증 패널
       ========================= */
     openContractPanel() {
+      console.log("=== PROPERTY CHECK ===");
+      console.log("property:", this.property);
+      console.log("aptSeq:", this.property?.aptSeq);
+      console.log("id:", this.property?.id);
       this.contractPanelOpen = true;
     },
 
