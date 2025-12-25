@@ -12,15 +12,43 @@
         :zoomable="true"
         @onLoadKakaoMap="onLoadKakaoMap"
       >
-        <KakaoMapMarker
-          v-for="prop in validProperties"
-          :key="prop.id"
-          :lat="prop.latitude"
-          :lng="prop.longitude"
-          :image="markerImageConfig"
-          :clickable="true"
-          @onClickKakaoMapMarker="selectProperty(prop)"
-        />
+        <KakaoMapCustomOverlay
+          v-for="c in clusterMarkers"
+          :key="c.key"
+          :lat="c.lat"
+          :lng="c.lng"
+          :yAnchor="1"
+        >
+          <div
+            class="count-marker"
+            :class="{ cluster: c.items.length > 1 }"
+            @click.stop="
+              c.items.length > 1
+                ? zoomIntoCluster(c)
+                : selectProperty(c.items[0], { fromMap: true })
+            "
+          >
+            <span class="marker-count">{{ c.count }}</span>
+            <div class="marker-glow"></div>
+          </div>
+        </KakaoMapCustomOverlay>
+
+        <!-- (선택) 클러스터 모드가 아닐 때만 개별 표시 -->
+        <KakaoMapCustomOverlay
+          v-for="m in !isClusterMode ? markerBuildings : []"
+          :key="m.aptSeq"
+          :lat="m.latitude"
+          :lng="m.longitude"
+          :yAnchor="1"
+        >
+          <div
+            class="count-marker"
+            @click.stop="selectProperty(m, { fromMap: true })"
+          >
+            <span class="marker-count">{{ m.count }}</span>
+            <div class="marker-glow"></div>
+          </div>
+        </KakaoMapCustomOverlay>
       </KakaoMap>
     </div>
 
@@ -36,6 +64,7 @@
       :error-message="errorMessage"
       @change-mode="setTabMode"
       @select-property="selectProperty"
+      @go-map="handleGoMap"
     />
 
     <!-- ================== PANELS ================== -->
@@ -46,13 +75,6 @@
       @favorite-empty="removeFavoriteBuilding"
       @open-reviews="openReviewsPanel"
     />
-    <!-- <PropertyDetailPanel
-      v-if="selectedProperty && !showReviewPanel"
-      :property="selectedProperty"
-      @close="closeDetailPanel"
-      @toggle-like="toggleLike"
-      @open-reviews="openReviewsPanel"
-    /> -->
 
     <ReviewListPanel
       v-if="reviewTarget && showReviewPanel"
@@ -65,7 +87,11 @@
 
 <script>
 import axios from "axios";
-import { KakaoMap, KakaoMapMarker } from "vue3-kakao-maps";
+import {
+  KakaoMap,
+  KakaoMapMarker,
+  KakaoMapCustomOverlay,
+} from "vue3-kakao-maps";
 
 import SearchSidebar from "@/components/search/SearchSidebar.vue";
 import PropertyDetailPanel from "@/components/search/PropertyDetailPanel.vue";
@@ -79,27 +105,28 @@ export default {
   name: "SearchMapPage",
   components: {
     KakaoMap,
-    KakaoMapMarker,
+    KakaoMapCustomOverlay,
     SearchSidebar,
     PropertyDetailPanel,
     ReviewListPanel,
   },
   data() {
     return {
-      // map
       center: { lat: 37.572, lng: 126.991 },
       level: 4,
       mapRef: null,
 
-      // ui state
-      entryMode: "ALL", // ALL | RECO | FAVORITE
-      tabMode: "ALL", // ALL | RECO | NONE
+      clusterMarkers: [],
+      clusterThresholdLevel: 6,
+
+      entryMode: "ALL",
+      tabMode: "ALL",
       selectedProperty: null,
       showReviewPanel: false,
 
-      // data
       filterTags: [],
       properties: [],
+      listingCountMap: {},
 
       loading: false,
       errorMessage: "",
@@ -117,18 +144,40 @@ export default {
       },
     };
   },
-  // mounted() {
-  //   this.fetchSearchResults();
-  // },
+
   computed: {
+    isClusterMode() {
+      return this.level >= 6;
+    },
+
+    visibleBuildings() {
+      return this.isClusterMode ? [] : this.markerBuildings;
+    },
     toggleLocked() {
       return false;
     },
     validProperties() {
-      return this.properties.filter(
-        (p) =>
-          p.latitude && p.longitude && !isNaN(p.latitude) && !isNaN(p.longitude)
-      );
+      return this.properties.filter((p) => {
+        const lat = Number(p.latitude);
+        const lng = Number(p.longitude);
+        return Number.isFinite(lat) && Number.isFinite(lng);
+      });
+    },
+    markerBuildings() {
+      const map = new Map();
+
+      for (const p of this.validProperties) {
+        const aptSeq = String(p.aptSeq ?? p.id);
+
+        if (map.has(aptSeq)) continue;
+        map.set(aptSeq, {
+          ...p,
+          aptSeq,
+          count: this.listingCountMap[aptSeq] ?? 1,
+        });
+      }
+
+      return Array.from(map.values());
     },
   },
   async mounted() {
@@ -144,6 +193,12 @@ export default {
     );
   },
   watch: {
+    markerBuildings: {
+      deep: true,
+      handler() {
+        this.$nextTick(() => this.rebuildClusters());
+      },
+    },
     "$route.query": {
       deep: true,
       handler() {
@@ -152,6 +207,27 @@ export default {
     },
   },
   methods: {
+    handleGoMap(payload) {
+      console.log("[SearchMapPage] go-map payload:", payload);
+
+      const { aptSeq, lat, lng } = payload || {};
+
+      // aptSeq가 없으면 id를 fallback으로
+      const targetAptSeq = aptSeq ?? payload?.id;
+
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        this.center = { lat, lng };
+      }
+
+      if (targetAptSeq) {
+        this.selectedAptSeq = targetAptSeq;
+
+        const found = this.properties.find(
+          (p) => String(p.aptSeq ?? p.id) === String(targetAptSeq)
+        );
+        if (found) this.selectProperty(found, { fromMap: false });
+      }
+    },
     // ---------------------------
     // 헤더 검색 이벤트 핸들러
     // ---------------------------
@@ -168,25 +244,179 @@ export default {
     // ---------------------------
     // INIT (entry 결정)
     // ---------------------------
+    async hydrateMissingFields() {
+      const missing = this.properties
+        .filter((p) => {
+          const noPrice =
+            !p.minDealType || (p.minDeposit == null && p.minPrice == null);
+
+          const noCoord =
+            !Number.isFinite(Number(p.latitude)) ||
+            !Number.isFinite(Number(p.longitude));
+
+          // 가격 OR 좌표 중 하나라도 없으면 보강
+          return noPrice || noCoord;
+        })
+        .map((p) => String(p.aptSeq ?? p.id));
+
+      if (missing.length === 0) return;
+
+      const limit = 8;
+      const fetchedMap = new Map();
+
+      for (let i = 0; i < missing.length; i += limit) {
+        const chunk = missing.slice(i, i + limit);
+
+        const results = await Promise.allSettled(
+          chunk.map(async (aptSeq) => {
+            const { data } = await axios.post(`${API_BASE}/property/search`, {
+              aptSeq,
+              limit: 1,
+              offset: 0,
+            });
+            const b = Array.isArray(data) ? data[0] : data;
+            return { aptSeq, b };
+          })
+        );
+
+        for (const r of results) {
+          if (r.status === "fulfilled" && r.value?.b) {
+            fetchedMap.set(String(r.value.aptSeq), r.value.b);
+          }
+        }
+      }
+
+      this.properties = this.properties.map((p) => {
+        const key = String(p.aptSeq ?? p.id);
+        const b = fetchedMap.get(key);
+        if (!b) return p;
+
+        return {
+          ...p,
+          // 좌표 보강
+          latitude: Number(p.latitude) || Number(b.latitude),
+          longitude: Number(p.longitude) || Number(b.longitude),
+
+          // 가격 보강
+          minDealType: p.minDealType || b.minDealType || "",
+          minDeposit: p.minDeposit ?? b.minDeposit ?? null,
+          minPrice: p.minPrice ?? b.minPrice ?? null,
+        };
+      });
+    },
+    rebuildClusters() {
+      if (!this.mapRef) return;
+
+      const clusterMode = this.level >= 6;
+      if (!clusterMode) {
+        this.clusterMarkers = [];
+        return;
+      }
+
+      const kakao = window.kakao;
+      const bounds = this.mapRef.getBounds();
+      const proj = this.mapRef.getProjection();
+
+      const cellPx = 90;
+
+      const buckets = new Map();
+
+      for (const m of this.markerBuildings) {
+        const lat = Number(m.latitude);
+        const lng = Number(m.longitude);
+        if (!lat || !lng) continue;
+
+        const ll = new kakao.maps.LatLng(lat, lng);
+        if (!bounds.contain(ll)) continue;
+
+        const pt = proj.pointFromCoords(ll);
+        const gx = Math.floor(pt.x / cellPx);
+        const gy = Math.floor(pt.y / cellPx);
+        const key = `${gx}_${gy}`;
+
+        if (!buckets.has(key)) {
+          buckets.set(key, {
+            key,
+            count: 0,
+            sumLat: 0,
+            sumLng: 0,
+            items: [],
+          });
+        }
+
+        const b = buckets.get(key);
+        b.count += Number(m.count ?? 1);
+        b.sumLat += lat;
+        b.sumLng += lng;
+        b.items.push(m);
+      }
+
+      this.clusterMarkers = Array.from(buckets.values()).map((b) => ({
+        key: b.key,
+        count: b.count,
+        lat: b.sumLat / b.items.length,
+        lng: b.sumLng / b.items.length,
+        items: b.items,
+      }));
+    },
+
+    getCellSizeByLevel(level) {
+      if (level >= 9) return 0.02;
+      if (level >= 8) return 0.012;
+      if (level >= 7) return 0.008;
+      if (level >= 6) return 0.005;
+      return 0.003;
+    },
+
+    zoomIntoCluster(c) {
+      if (!this.mapRef) return;
+      const kakao = window.kakao;
+      this.mapRef.setCenter(new kakao.maps.LatLng(c.lat, c.lng));
+      this.mapRef.setLevel(Math.max(1, this.level - 2));
+    },
+    async fetchListingCounts() {
+      const aptSeqs = Array.from(
+        new Set(this.validProperties.map((p) => String(p.aptSeq ?? p.id)))
+      );
+
+      const limit = 8;
+      const nextMap = { ...this.listingCountMap };
+
+      for (let i = 0; i < aptSeqs.length; i += limit) {
+        const chunk = aptSeqs.slice(i, i + limit);
+
+        const results = await Promise.allSettled(
+          chunk.map(async (aptSeq) => {
+            const { data } = await axios.get(`/property/${aptSeq}/listings`);
+            return { aptSeq, count: Array.isArray(data) ? data.length : 0 };
+          })
+        );
+
+        for (const r of results) {
+          if (r.status === "fulfilled") {
+            nextMap[r.value.aptSeq] = r.value.count;
+          }
+        }
+      }
+
+      this.listingCountMap = nextMap;
+    },
+
     removeFavoriteBuilding(aptSeq) {
-      // 1️⃣ properties 리스트에서 제거
       this.properties = this.properties.filter(
         (p) => String(p.aptSeq) !== String(aptSeq)
       );
 
-      // 2️⃣ 선택 중이던 건물이면 상세 패널 닫기
       if (String(this.selectedAptSeq) === String(aptSeq)) {
         this.selectedProperty = null;
         this.selectedAptSeq = null;
         this.showReviewPanel = false;
       }
 
-      // 3️⃣ 리스트가 비었으면 메시지
       if (this.properties.length === 0) {
         this.errorMessage = "찜한 매물이 없습니다.";
       }
 
-      // 4️⃣ 지도 중심 재조정
       this.moveCenterToFirst();
     },
     async initByRoute() {
@@ -203,6 +433,9 @@ export default {
         this.entryMode = "FAVORITE";
         this.tabMode = "NONE";
         await this.fetchFavoriteProperties();
+        await this.fetchListingCounts();
+        this.rebuildClusters();
+
         return;
       }
 
@@ -210,33 +443,53 @@ export default {
         this.entryMode = "RECO";
         this.tabMode = "RECO";
         await this.fetchRecoProperties();
+        await this.fetchListingCounts();
+        this.rebuildClusters();
+
         this.openPropertyIfRequested(open);
-        // this.ui.setSearchMode("RECO");
         return;
       }
 
       this.entryMode = "ALL";
       this.tabMode = "ALL";
       await this.fetchSearchResults();
+      await this.fetchListingCounts();
+      this.rebuildClusters();
+
       this.openPropertyIfRequested(open);
     },
 
-    setTabMode(next) {
+    async setTabMode(next) {
+      // 찜에서 전체/추천 누르면 라우트 변경 유지
+      if (this.entryMode === "FAVORITE") {
+        this.$router.replace({
+          path: this.$route.path,
+          query: {
+            ...this.$route.query,
+            mode: next === "RECO" ? "reco" : "all",
+          },
+        });
+        return;
+      }
+
+      this.selectedProperty = null;
+      this.showReviewPanel = false;
+
       if (next === "ALL") {
-        this.entryMode = "ALL"; // 진입 상태도 전환
+        this.entryMode = "ALL";
         this.tabMode = "ALL";
-        this.selectedProperty = null;
-        this.showReviewPanel = false;
-        this.fetchSearchResults();
+        await this.fetchSearchResults();
+        await this.fetchListingCounts();
+        this.$nextTick(() => this.rebuildClusters());
         return;
       }
 
       if (next === "RECO") {
         this.entryMode = "RECO";
         this.tabMode = "RECO";
-        this.selectedProperty = null;
-        this.showReviewPanel = false;
-        this.fetchRecoProperties();
+        await this.fetchRecoProperties();
+        await this.fetchListingCounts();
+        this.$nextTick(() => this.rebuildClusters());
         return;
       }
     },
@@ -253,11 +506,22 @@ export default {
       this.mapRef = map;
       map.setDraggable(true);
       map.setZoomable(true);
+
+      window.kakao.maps.event.addListener(map, "zoom_changed", () => {
+        this.level = map.getLevel();
+        this.rebuildClusters();
+      });
+      window.kakao.maps.event.addListener(map, "dragend", () => {
+        this.rebuildClusters();
+      });
+      window.kakao.maps.event.addListener(map, "idle", () => {
+        this.rebuildClusters();
+      });
+
+      this.level = map.getLevel();
+      this.rebuildClusters();
     },
 
-    // ---------------------------
-    // FAVORITE (찜)
-    // ---------------------------
     async fetchFavoriteProperties() {
       this.loading = true;
       this.properties = [];
@@ -271,14 +535,6 @@ export default {
           return;
         }
 
-        /**
-         * 여기서 "찜 목록"을 실제 매물 카드 리스트로 보여주려면
-         * 1) 백엔드가 aptSeq 리스트를 주거나
-         * 2) 아예 매물 요약 DTO 리스트를 주는 엔드포인트가 있어야 함.
-         *
-         * 아래는 "aptSeq 리스트"를 받는다고 가정한 호출:
-         * GET /favorite/aptseq?type=매물
-         */
         const { data: aptSeqs } = await axios.get(
           `${API_BASE}/favorite/aptseq`,
           {
@@ -319,9 +575,6 @@ export default {
       }
     },
 
-    // ---------------------------
-    // RECO (추천)
-    // ---------------------------
     async fetchRecoProperties() {
       this.loading = true;
       this.properties = [];
@@ -330,6 +583,8 @@ export default {
       try {
         const raw = sessionStorage.getItem("tothezip_reco");
         const reco = raw ? JSON.parse(raw) : null;
+        // console.log("[RECO RAW]", sessionStorage.getItem("tothezip_reco"));
+        console.log("[RECO PARSED]", reco);
 
         if (!reco) {
           this.errorMessage =
@@ -337,31 +592,36 @@ export default {
           return;
         }
 
-        // 태그 구성: 관심/선호 기반 (지역 + 시설 + 평수 + 층수)
+        const recoRegionName = (reco.regionName || "").trim();
+
         this.filterTags = this.makeRecoTags(reco);
 
-        // 추천 매물 리스트 구성 (가능하면 payload에 properties를 통째로 넣는 게 제일 좋음)
+        console.log("[RECO] properties:", this.properties.length);
+        console.log("[RECO] valid:", this.validProperties.length);
+        console.log("[RECO] markerBuildings:", this.markerBuildings.length);
+        console.log("[RECO] sample:", this.properties[0]);
+
         if (Array.isArray(reco.properties) && reco.properties.length > 0) {
-          // 홈에서 이미 DTO를 내려받은 상태면 그대로 사용
           this.properties = reco.properties.map((p) => ({
             id: p.aptSeq ?? p.id,
             aptSeq: p.aptSeq ?? p.id,
             name: p.aptName ?? p.name,
             address: p.roadAddress ?? p.address,
+            addressRaw: p.roadAddress ?? p.address,
             rating: p.propertyRating ?? p.rating,
             tags: p.tags || [],
             buildYear: p.buildYear,
             isLiked: true,
             image: p.imageUrl || p.image || "",
             images: p.images || [],
+            regionName: (p.regionName || recoRegionName || "").trim(),
+            latitude: Number(p.latitude),
+            longitude: Number(p.longitude),
             minDealType: p.minDealType || "",
             minPrice: p.minPrice ?? null,
             minDeposit: p.minDeposit ?? null,
-            latitude: Number(p.latitude),
-            longitude: Number(p.longitude),
           }));
         } else {
-          // aptSeqList로 다시 조회
           const aptSeqList = Array.isArray(reco.aptSeqList)
             ? reco.aptSeqList
             : [];
@@ -384,10 +644,16 @@ export default {
             .map((r) => (Array.isArray(r.data) ? r.data[0] : r.data))
             .filter(Boolean);
 
-          this.properties = buildings.map(this.mapBuildingToCard(true));
+          // mapBuildingToCard는 regionName 안 넣어주니까 여기서 주입
+          this.properties = buildings.map((b) => ({
+            ...this.mapBuildingToCard(true)(b),
+            regionName: recoRegionName,
+            addressRaw: b.roadAddress,
+          }));
         }
 
         this.moveCenterToFirst();
+        await this.hydrateMissingFields();
       } catch (e) {
         console.error(e);
         this.errorMessage = "추천 매물을 불러오지 못했습니다.";
@@ -400,15 +666,12 @@ export default {
       const tags = [];
       let id = 1;
 
-      // 관심 지역
       if (reco.regionName) tags.push({ id: id++, label: reco.regionName });
 
-      // 주변 시설 태그
       (reco.facilityTags || []).forEach((t) =>
         tags.push({ id: id++, label: t })
       );
 
-      // 희망 평수/층수
       const pref = reco.preferences || {};
       if (pref.minArea != null || pref.maxArea != null) {
         tags.push({
@@ -426,16 +689,12 @@ export default {
       return tags;
     },
 
-    // ---------------------------
-    // ALL (전체 검색)
-    // ---------------------------
     async fetchSearchResults() {
       this.loading = true;
       this.properties = [];
       this.filterTags = [];
 
       try {
-        // 기존 너 로직: sessionStorage에 있는 검색조건 사용
         const raw = sessionStorage.getItem("tothezip_search");
         const searchData = raw ? JSON.parse(raw) : null;
 
@@ -464,6 +723,7 @@ export default {
             aptSeq: b.aptSeq,
             name: b.aptName,
             address: b.roadAddress,
+            addressRaw: b.roadAddress,
             rating: b.propertyRating,
             tags: b.tags || [],
             buildYear: b.buildYear,
@@ -477,8 +737,17 @@ export default {
             minDeposit: b.minDeposit ?? null,
             latitude: Number(b.latitude),
             longitude: Number(b.longitude),
+
+            jibun: b.jibun, // "648-3"
+            roadNm: b.roadNm || b.road_nm, // "온천북로33번길"
+            roadBun: b.roadBun || b.road_bun,
+
+            sidoName: b.sidoName || b.sido_name || "",
+            gugunName: b.gugunName || b.gugun_name || b.sggName || "",
+            dongName: b.dongName || b.dong_name || b.umdName || "",
           };
         });
+        await this.fetchListingCounts();
 
         this.moveCenterToFirst();
       } catch (e) {
@@ -489,9 +758,6 @@ export default {
       }
     },
 
-    // ---------------------------
-    // shared helpers
-    // ---------------------------
     moveCenterToFirst() {
       if (this.properties.length > 0) {
         const first = this.properties[0];
@@ -529,13 +795,18 @@ export default {
           minDeposit: b.minDeposit ?? null,
           latitude: Number(b.latitude),
           longitude: Number(b.longitude),
+
+          jibun: b.jibun,
+          roadNm: b.roadNm || b.road_nm,
+          roadBun: b.roadBun || b.road_bun,
+
+          sidoName: b.sidoName || b.sido_name || "",
+          gugunName: b.gugunName || b.gugun_name || b.sggName || "",
+          dongName: b.dongName || b.dong_name || b.umdName || "",
         };
       };
     },
 
-    // ---------------------------
-    // existing tag builders
-    // ---------------------------
     makeRequestBody(searchData) {
       const opt = searchData.options || {};
       const prop = searchData.property || null;
@@ -607,7 +878,6 @@ export default {
     },
 
     openReviewsPanel(payload) {
-      // payload: { aptSeq, name }
       this.reviewTarget = payload;
       this.showReviewPanel = true;
     },
@@ -629,7 +899,6 @@ export default {
         this.center = { lat: property.latitude, lng: property.longitude };
       }
 
-      // 사이드바의 scrollToCard 호출
       if (this.$refs.sidebarRef && this.selectedAptSeq) {
         this.$refs.sidebarRef.scrollToCard(this.selectedAptSeq);
       }
@@ -647,12 +916,186 @@ export default {
 .search-map-page {
   width: 100%;
   height: 100%;
-
   position: relative;
   overflow: hidden;
+  --sidebar-w: 270px;
+  --panel-gap: 7px;
 }
 .map-container {
   position: absolute;
   inset: 0;
+}
+
+/* 🎨 예쁜 마커 스타일 */
+.count-marker {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: linear-gradient(
+    135deg,
+    var(--tothezip-orange-03) 0%,
+    var(--tothezip-orange-05) 50%,
+    var(--tothezip-ruby-05) 100%
+  );
+  border: 3px solid #ffffff;
+
+  box-shadow: 0 4px 12px rgba(227, 93, 55, 0.35), 0 2px 4px rgba(0, 0, 0, 0.15),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.1),
+    inset 0 2px 4px rgba(255, 255, 255, 0.3);
+
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+}
+
+.count-marker::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: linear-gradient(
+    45deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.count-marker:hover::before {
+  opacity: 1;
+  animation: shine 1.5s infinite;
+}
+
+@keyframes shine {
+  0% {
+    transform: translateX(-100%) translateY(-100%) rotate(45deg);
+  }
+  100% {
+    transform: translateX(100%) translateY(100%) rotate(45deg);
+  }
+}
+
+.marker-count {
+  font-family: "Pretendard", sans-serif;
+  font-weight: 800;
+  font-size: 15px;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  position: relative;
+  z-index: 2;
+}
+
+.marker-glow {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(227, 93, 55, 0.4) 0%,
+    rgba(227, 93, 55, 0.2) 40%,
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 1;
+  animation: glowPulse 2s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.6;
+  }
+}
+
+.count-marker:hover {
+  transform: translateY(-4px) scale(1.1);
+  box-shadow: 0 8px 20px rgba(227, 93, 55, 0.4), 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.count-marker:hover .marker-glow {
+  opacity: 1;
+}
+
+.count-marker:active {
+  transform: translateY(-2px) scale(1.05);
+}
+
+/* 클러스터 마커 (여러 개 묶인 경우) */
+.count-marker.cluster {
+  width: 52px;
+  height: 52px;
+  background: linear-gradient(
+    135deg,
+    var(--tothezip-ruby-04) 0%,
+    var(--tothezip-ruby-06) 50%,
+    var(--tothezip-orange-06) 100%
+  );
+  border-width: 4px;
+  box-shadow: 0 6px 16px rgba(178, 34, 34, 0.4), 0 3px 6px rgba(0, 0, 0, 0.2),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.15),
+    inset 0 2px 6px rgba(255, 255, 255, 0.3);
+  animation: pulse 2s infinite;
+}
+
+.count-marker.cluster::before {
+  background: linear-gradient(
+    45deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 70%
+  );
+}
+
+.count-marker.cluster .marker-count {
+  font-size: 18px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+.count-marker.cluster .marker-glow {
+  background: radial-gradient(
+    circle,
+    rgba(178, 34, 34, 0.5) 0%,
+    rgba(227, 93, 55, 0.3) 40%,
+    transparent 70%
+  );
+  animation: clusterGlowPulse 2s ease-in-out infinite;
+}
+
+@keyframes clusterGlowPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 0.7;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 4px 12px rgba(178, 34, 34, 0.3), 0 2px 4px rgba(0, 0, 0, 0.15),
+      0 0 0 0 rgba(178, 34, 34, 0.4);
+  }
+  50% {
+    box-shadow: 0 4px 12px rgba(178, 34, 34, 0.3), 0 2px 4px rgba(0, 0, 0, 0.15),
+      0 0 0 15px rgba(178, 34, 34, 0);
+  }
 }
 </style>

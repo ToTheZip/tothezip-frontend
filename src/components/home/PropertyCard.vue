@@ -105,8 +105,9 @@ export default {
       // ✅ 임시 상태(나중에 서버/스토어로 연결하면 됨)
       // liked: false,
       // isBouncing: false,
-      fallbackImg: new URL("@/assets/images/dozip_logo.png", import.meta.url).href,
-      imgSrc: ""
+      fallbackImg: new URL("@/assets/images/dozip_logo.png", import.meta.url)
+        .href,
+      imgSrc: "",
     };
   },
   mounted() {
@@ -131,6 +132,13 @@ export default {
     },
     goToMap() {
       // apt_seq = property.id
+      console.log("[PropertyCard] goToMap", {
+        id: this.property.id,
+        aptSeq: this.property.aptSeq,
+        name: this.property.name,
+        lat: this.property.latitude,
+        lng: this.property.longitude,
+      });
       this.$emit("go-map", this.property.id);
     },
     // toggleLike() {
@@ -418,7 +426,6 @@ export default {
 .property-image-box:hover .go-map-text {
   transform: scale(1.04);
 }
-
 
 /* @keyframes heart-bounce {
   0% {
