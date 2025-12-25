@@ -306,6 +306,14 @@ export default {
         계약서 인증 패널
       ========================= */
     openContractPanel() {
+      const auth = useAuthStore();
+      if (!auth.accessToken) {
+        alert(
+          "🔒 로그인이 필요합니다.\n\n계약서 인증은 로그인 후 이용하실 수 있습니다."
+        );
+        this.$router.push("/login");
+        return;
+      }
       console.log("=== PROPERTY CHECK ===");
       console.log("property:", this.property);
       console.log("aptSeq:", this.property?.aptSeq);

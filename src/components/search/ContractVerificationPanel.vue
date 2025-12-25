@@ -521,13 +521,30 @@ export default {
         fd.append("files", this.file);
 
         const base = (OCR_BASE || "").replace(/\/$/, "");
-        const { data } = await axios.post(`${base}/extract?llm=0`, fd);
+        let data;
+        try {
+          const r = await axios.post(`${base}/extract`, fd, {
+            params: { llm: 1 },
+          });
+          data = r.data;
+        } catch (e) {
+          console.warn("[LLM OCR 실패] fallback to llm=0", e);
+          const r2 = await axios.post(`${base}/extract`, fd, {
+            params: { llm: 0 },
+          });
+          data = r2.data;
+        }
         this.ocrResult = data;
 
         const extractedAddr = data?.extracted?.address_raw || "";
         const expectedAddr = this.fullAddress || "";
 
         const ok = this.isAddressMatchWithCandidates(extractedAddr);
+        console.log("[OCR extracted]", this.ocrResult?.extracted);
+        console.log(
+          "[OCR full_text]",
+          (this.ocrResult?.full_text || "").slice(0, 300)
+        );
 
         // 2) aptSeq 추출
         const p = this.detailProperty || this.property || {};

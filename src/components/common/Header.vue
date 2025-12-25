@@ -216,12 +216,12 @@
                 />
               </svg>
             </button>
-
             <button
+              type="button"
               class="icon-button"
               title="마이 캘린더"
               data-favcal-toggle="1"
-              @click.stop.prevent="toggleCalendar"
+              @click="toggleCalendar"
             >
               <svg
                 width="24"
@@ -288,7 +288,7 @@
 
 <script>
 import { useAuthStore } from "@/stores/auth";
-import { computed, ref, onMounted, onBeforeUnmount } from "vue";
+import { computed } from "vue";
 import { logoutApi } from "@/api/auth";
 
 import { useUIStore } from "@/stores/ui";
@@ -298,32 +298,11 @@ import RegionSelectPanel from "@/components/home/search/RegionSelectPanel.vue";
 import OptionsSelectPanel from "@/components/home/search/OptionsSelectPanel.vue";
 import PropertySearchPanel from "@/components/home/search/PropertySearchPanel.vue";
 
-const profilePanelRef = ref(null);
-
-const ui = {
-  showProfileMenu: ref(false),
-  toggleProfileMenu() {
-    this.showProfileMenu.value = !this.showProfileMenu.value;
-  },
-  closeProfileMenu() {
-    this.showProfileMenu.value = false;
-  },
-};
-
-// 바깥 클릭 시 닫기
 const onClickOutside = (e) => {
-  if (profilePanelRef.value && !profilePanelRef.value.$el.contains(e.target)) {
-    ui.closeProfileMenu();
-  }
+  const ui = useUIStore();
+  // 프로필 메뉴가 열려있고, 클릭된 요소가 프로필 패널 내부에 없으면 닫기
+  // 하지만 여기서는 Header 컴포넌트 내부에서 처리하는 것이 안전함
 };
-
-onMounted(() => {
-  document.addEventListener("click", onClickOutside);
-});
-
-onBeforeUnmount(() => {
-  document.removeEventListener("click", onClickOutside);
-});
 
 export default {
   name: "Header",
@@ -434,14 +413,26 @@ export default {
     PropertySearchPanel,
   },
   mounted() {
-    // 전역 클릭 이벤트 리스너 추가
-    document.addEventListener("click", this.handleDocumentClick);
+    document.addEventListener("click", this.handleClickOutside);
   },
   beforeUnmount() {
-    // 전역 클릭 이벤트 리스너 제거
-    document.removeEventListener("click", this.handleDocumentClick);
+    document.removeEventListener("click", this.handleClickOutside);
   },
   methods: {
+    handleClickOutside(event) {
+      const ui = useUIStore();
+      if (!ui.showProfileMenu) return;
+
+      const profilePanel = this.$refs.profilePanelRef;
+      // 프로필 버튼이나 패널 내부 클릭은 무시
+      if (
+        event.target.closest(".profile-button") || 
+        (profilePanel && profilePanel.$el.contains(event.target))
+      ) {
+        return;
+      }
+      ui.closeProfileMenu();
+    },
     // 전역 클릭 핸들러 (검색바 외부 클릭 시 닫기)
     handleDocumentClick(event) {
       if (!this.isSearchExpanded) return;
@@ -667,7 +658,7 @@ export default {
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 1000;
+  z-index: 20000;
 }
 
 .navbar-inner {
